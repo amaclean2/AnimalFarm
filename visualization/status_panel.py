@@ -48,10 +48,8 @@ class StatusPanel:
         panel_width = SCREEN_WIDTH
         
         # Fixed margins and spacing
-        left_margin = 30
-        right_margin = 30
-        top_margin = 10
-        bottom_margin = 10
+        left_margin = 40
+        right_margin = 40
         
         # Calculate column widths
         col_width = (panel_width - left_margin - right_margin) // 2
@@ -60,27 +58,27 @@ class StatusPanel:
         self.layout = {
             'agent_info': {
                 'x': left_margin,
-                'y': top_margin,
+                'y': 20,  # More vertical space at top
                 'width': col_width,
                 'height': 140
             },
             'energy_bars': {
-                'x': left_margin + col_width + 20,  # Add padding between columns
-                'y': top_margin,
-                'width': col_width - 20,  # Adjust for padding
+                'x': left_margin + col_width + 40,  # More padding between columns
+                'y': 20,
+                'width': col_width - 40,  # Adjust for padding
                 'height': 140
             },
             'world_info': {
                 'x': left_margin,
-                'y': 150,
+                'y': 170,  # More space between sections
                 'width': panel_width - left_margin - right_margin,
-                'height': 30
+                'height': 40
             },
             'help': {
                 'x': 0,  # Will be centered
-                'y': self.height - 25,
+                'y': self.height - 35,  # More space at bottom
                 'width': panel_width,
-                'height': 20
+                'height': 25
             }
         }
     
@@ -112,28 +110,6 @@ class StatusPanel:
         # Main panel background
         panel_rect = pygame.Rect(0, self.y_position, SCREEN_WIDTH, self.height)
         pygame.draw.rect(screen, COLOR['GRAY'], panel_rect)
-        
-        # Divider lines
-        divider_color = (100, 100, 100)  # Darker gray for dividers
-        
-        # Calculate divider positions based on layout
-        center_x = self.layout['agent_info']['x'] + self.layout['agent_info']['width']
-        
-        # Vertical divider
-        pygame.draw.line(
-            screen, divider_color, 
-            (center_x, self.y_position),
-            (center_x, self.y_position + 140), 
-            2
-        )
-                       
-        # Horizontal divider
-        pygame.draw.line(
-            screen, divider_color, 
-            (0, self.y_position + 140),
-            (SCREEN_WIDTH, self.y_position + 140), 
-            2
-        )
     
     def _draw_agent_info(self, screen, agent):
         """Draw agent information on the left side."""
@@ -144,7 +120,7 @@ class StatusPanel:
         agent_color = self._get_agent_color(agent)
         
         # Draw color indicator
-        indicator_size = 14
+        indicator_size = 16  # Slightly larger
         pygame.draw.rect(
             screen, 
             agent_color,
@@ -153,11 +129,11 @@ class StatusPanel:
         
         # Title with agent ID
         title = self.title_font.render(f"AGENT: {agent.agent_id}", True, COLOR['BLACK'])
-        screen.blit(title, (base_x + indicator_size + 10, base_y))
+        screen.blit(title, (base_x + indicator_size + 12, base_y))
         
         # Agent stats with consistent spacing
-        line_height = 20
-        stats_y_start = base_y + 30
+        line_height = 25  # Increased line height
+        stats_y_start = base_y + 35  # More space after title
         
         stats = [
             self._format_position(agent),
@@ -216,17 +192,13 @@ class StatusPanel:
         screen.blit(title, title_rect)
         
         # Fixed dimensions for layout elements
-        label_width = 80
-        bar_width = 180
-        bar_height = 15
-        value_padding = 10
+        label_width = 90  # Wider to accommodate "Collected:"
+        bar_width = 240   # Longer bars for better visibility
+        bar_height = 18   # Taller bars
+        value_padding = 15
         
-        # Ensure there's enough space between elements
-        if section['width'] < label_width + bar_width + 80:  # 80px for value text
-            bar_width = section['width'] - label_width - 80
-        
-        # Y positions for each bar
-        y_positions = [base_y + 30, base_y + 55, base_y + 80]
+        # Y positions for each bar with more spacing
+        y_positions = [base_y + 35, base_y + 65, base_y + 95]
         
         # Draw each bar with consistent positioning
         self._draw_energy_bar(
@@ -276,7 +248,7 @@ class StatusPanel:
         """
         # Draw label with fixed width
         label = self.font.render(label_text, True, COLOR['BLACK'])
-        screen.blit(label, (x, y))
+        screen.blit(label, (x, y + (bar_height - label.get_height()) // 2))  # Vertical centering
         
         # Calculate positions
         bar_x = x + label_width
@@ -295,7 +267,7 @@ class StatusPanel:
         # Draw value text
         value_text = f"{current}/{maximum}"
         value = self.font.render(value_text, True, COLOR['BLACK'])
-        screen.blit(value, (value_x, y))
+        screen.blit(value, (value_x, y + (bar_height - value.get_height()) // 2))  # Vertical centering
     
     def _draw_world_info(self, screen, world, turns, is_day):
         """Draw world information at the bottom."""
@@ -305,28 +277,26 @@ class StatusPanel:
         # Get cell counts for resources
         cell_counts = world.count_cells_by_state()
         
-        # Create a 3-column layout
-        col_width = section['width'] // 3
+        # Create a multi-column layout with fixed widths
+        time_x = base_x
+        turn_x = base_x + 200
+        resources_x = base_x + 400
         
-        # Column 1: Time of day
+        # Time of day
         time_text = self.title_font.render(
             f"TIME: {'DAY' if is_day else 'NIGHT'}", 
             True, COLOR['BLACK']
         )
-        screen.blit(time_text, (base_x, base_y))
+        screen.blit(time_text, (time_x, base_y))
         
-        # Column 2: Turn counter
+        # Turn counter
         turn_text = self.font.render(f"Turn: {turns}", True, COLOR['BLACK'])
-        screen.blit(turn_text, (base_x + col_width, base_y))
+        screen.blit(turn_text, (turn_x, base_y))
         
-        # Column 3: Resources - split into two rows for clarity
-        resources_text = f"Resources: {cell_counts['full']} Full"
+        # Resources - on one line with better spacing
+        resources_text = f"Resources: {cell_counts['full']} Full | {cell_counts['regrowing']} Regrowing | {cell_counts['consumed']} Consumed"
         resources = self.font.render(resources_text, True, COLOR['BLACK'])
-        screen.blit(resources, (base_x + col_width * 2, base_y))
-        
-        resources_text2 = f"{cell_counts['regrowing']} Regrowing | {cell_counts['consumed']} Consumed"
-        resources2 = self.font.render(resources_text2, True, COLOR['BLACK'])
-        screen.blit(resources2, (base_x + col_width * 2, base_y + 18))
+        screen.blit(resources, (resources_x, base_y))
     
     def _draw_help_text(self, screen):
         """Draw help text at the bottom."""

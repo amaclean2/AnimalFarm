@@ -17,14 +17,14 @@ WORLD_SIZE = 50                      # Size of the world grid (WORLD_SIZE x WORL
 # Viewport settings
 VIEWPORT_WIDTH = 40                  # How many cells wide the viewport is (increased from 30)
 VIEWPORT_HEIGHT = 30                 # How many cells tall the viewport is (increased from 25)
-STATUS_PANEL_HEIGHT = 220            # Height of the status panel in pixels
+STATUS_PANEL_HEIGHT = 230            # Height of the status panel in pixels
 
 # Screen dimensions (calculated from the above)
 SCREEN_WIDTH = VIEWPORT_WIDTH * CELL_SIZE
 SCREEN_HEIGHT = VIEWPORT_HEIGHT * CELL_SIZE + STATUS_PANEL_HEIGHT
 
 # Rendering settings
-FPS = 5                              # Frames per second cap
+FPS = 12                              # Frames per second cap
 
 #------------------------------------------------------------------------------
 # Color Definitions
@@ -60,20 +60,20 @@ COLOR = {
 #------------------------------------------------------------------------------
 
 # Resource settings
-INITIAL_RESOURCE_PERCENTAGE = 0.1    # Percentage of cells that start with resources
-RESOURCE_VALUE = 2                   # Caloric value of each cell's resources
+INITIAL_RESOURCE_PERCENTAGE = 0.03    # Percentage of cells that start with resources
+RESOURCE_VALUE = 20                   # Caloric value of each cell's resources
 
 # Regrowth settings
 REGROWTH_ENABLED = True              # Whether cells can regrow resources
-MIN_REGROWTH_TIME = 200              # Minimum turns for a cell to regenerate
-MAX_REGROWTH_TIME = 300              # Maximum turns for a cell to regenerate
+MIN_REGROWTH_TIME = 300              # Minimum turns for a cell to regenerate
+MAX_REGROWTH_TIME = 400              # Maximum turns for a cell to regenerate
 
 #------------------------------------------------------------------------------
 # Time System Settings
 #------------------------------------------------------------------------------
 
 # Day/night cycle
-MOVES_PER_DAY = 10                   # Number of moves the agent makes per day
+MOVES_PER_DAY = 20                   # Number of moves the agent makes per day
 
 #------------------------------------------------------------------------------
 # Agent Settings
@@ -85,7 +85,7 @@ MAX_CALORIES = 50                    # Maximum calorie storage
 INITIAL_SLEEP = 100                  # Starting sleep energy
 MAX_SLEEP = 100                      # Maximum sleep energy
 SLEEP_ENERGY_GAIN = 10               # Sleep energy gained per turn while sleeping
-CALORIE_CONSUMPTION_PER_DAY = 15     # Calories consumed each night
+CALORIE_CONSUMPTION_PER_DAY = 25     # Calories consumed each night
 
 # Movement settings
 RESOURCE_SENSING_RANGE = 4           # How far the agent can "see" resources

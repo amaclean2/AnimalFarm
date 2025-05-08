@@ -1,16 +1,50 @@
-- build a world made of cells on a 20 x 20 array
-- display the world in pygame
-- each cell has resources worth two calories
-- once the cell has been consumed, it will not grow back
+# Agent Survival Simulation - Instructions
 
-- there is one agent class
-- this agent has a certain amount of energy from sleep and a certain amount of calories from food
-- the agent keeps moving to new cells consuming resources
-- it's movement is random, but it takes the agerage of the last movement and the new movement and goes in that direction
-- if the agent is against a wall, the last movement get's flipped 180 degrees so the average should be away from the wall
-- each move it makes it gets tired and burns calories as well as sleep
-- when it's sleep health is down to half, it sleeps until it is full again
-- as it's sleeping it burns one calorie per turn
-- as it's moving it burns two calories per turn
-- if the agent runs out of calories or sleep energy, it dies
-- the game keeps looping until the agent dies
+## Overview
+This is a multi-agent survival simulation where agents navigate a resource-constrained environment with day-night cycles. Agents must balance exploring to find resources, collecting food, and resting to survive as long as possible.
+
+## Core Mechanics
+- The world is a grid of cells (50 x 50)
+- Each cell may contain resources worth a set number of calories
+- Agents have two energy systems: calories and sleep energy
+- During the day, agents move around and collect resources
+- During night, agents sleep to restore sleep energy and consume collected calories
+- Agents die if they run out of either calories or sleep energy
+
+## Agent Behavior
+- Agents can sense nearby resources within their detection range
+- Movement is partly directed toward resources and partly random
+- When an agent hits a wall, its movement direction is adjusted to move away
+- Each move costs sleep energy
+- Agents need to collect enough food each day to survive the night
+- Sleep automatically restores sleep energy during the night phase
+- The simulation continues until all agents die
+
+## Controls
+- SPACE: Pause/resume the simulation
+- R: Restart the simulation
+- ESC: Exit the simulation
+- TAB: Switch between agents (to follow different agents with the camera)
+
+## Configuration
+The simulation can be customized in config.py:
+- World size and resource density
+- Agent energy levels and consumption rates
+- Day length (moves per day)
+- Regrowth settings for consumed cells
+- Display settings (colors, viewport size, etc.)
+
+## Visualization
+- The simulation features a day-night cycle with different color schemes
+- The status panel shows agent information and world statistics
+- Agent sensing radius is visualized to show what resources they can detect
+- Resources are color-coded (green = full, light green = regrowing, brown = consumed)
+
+## Multi-Agent System
+- Up to 4 agents can compete for resources
+- Each agent has a unique color for identification
+- When an agent dies, you can switch to other living agents
+- The agent that survives the longest wins
+
+## Game Over
+When all agents die, the simulation displays the final statistics and the winner.
