@@ -1,0 +1,16 @@
+- build a world made of cells on a 20 x 20 array
+- display the world in pygame
+- each cell has resources worth two calories
+- once the cell has been consumed, it will not grow back
+
+- there is one agent class
+- this agent has a certain amount of energy from sleep and a certain amount of calories from food
+- the agent keeps moving to new cells consuming resources
+- it's movement is random, but it takes the agerage of the last movement and the new movement and goes in that direction
+- if the agent is against a wall, the last movement get's flipped 180 degrees so the average should be away from the wall
+- each move it makes it gets tired and burns calories as well as sleep
+- when it's sleep health is down to half, it sleeps until it is full again
+- as it's sleeping it burns one calorie per turn
+- as it's moving it burns two calories per turn
+- if the agent runs out of calories or sleep energy, it dies
+- the game keeps looping until the agent dies
