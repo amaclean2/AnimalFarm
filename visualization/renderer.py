@@ -162,16 +162,10 @@ class Renderer:
     
     def _draw_ui_elements(self, screen, world, agents, active_agent, turns, is_day, game_state):
         """Draw all UI elements based on the current game state."""
-        # Draw day/night indicator
-        self._draw_day_night_indicator(screen, is_day, turns)
         
         # Draw status panel for the active agent
         if active_agent:
             self.status_panel.draw(screen, active_agent, turns, is_day, world)
-            
-            # Show notice if active agent is dead
-            if not active_agent.alive:
-                self.game_ui.draw_agent_dead_notice(screen)
         
         # Draw state-dependent UI
         if game_state == self.STATE_PAUSED:
@@ -181,16 +175,6 @@ class Renderer:
             if agents:
                 best_agent = max(agents, key=lambda a: a.days_survived)
                 self.game_ui.draw_game_over(screen, best_agent)
-    
-    def _draw_day_night_indicator(self, screen, is_day, turns):
-        """Draw the day/night indicator with time progress."""
-        # For now, use a simple progress calculation based on turns
-        # In a more advanced system, this would come from the time system
-        progress = (turns % 20) / 20.0  # Simplified for demo
-        day_count = turns // 20  # Simplified for demo
-        
-        # Draw the indicator
-        self.game_ui.draw_day_night_indicator(screen, is_day, progress, day_count)
     
     def _draw_debug_info(self, screen, world, agents, active_agent, turns):
         """Draw debug information on screen."""

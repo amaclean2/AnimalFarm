@@ -11,13 +11,13 @@ without modifying the core code.
 #------------------------------------------------------------------------------
 
 # Basic display settings
-CELL_SIZE = 22                       # Size of each cell in pixels (increased from 20)
+CELL_SIZE = 25                       # Size of each cell in pixels (increased from 20)
 WORLD_SIZE = 50                      # Size of the world grid (WORLD_SIZE x WORLD_SIZE)
 
 # Viewport settings
-VIEWPORT_WIDTH = 35                  # How many cells wide the viewport is (increased from 30)
-VIEWPORT_HEIGHT = 28                 # How many cells tall the viewport is (increased from 25)
-STATUS_PANEL_HEIGHT = 140            # Height of the status panel in pixels
+VIEWPORT_WIDTH = 40                  # How many cells wide the viewport is (increased from 30)
+VIEWPORT_HEIGHT = 30                 # How many cells tall the viewport is (increased from 25)
+STATUS_PANEL_HEIGHT = 220            # Height of the status panel in pixels
 
 # Screen dimensions (calculated from the above)
 SCREEN_WIDTH = VIEWPORT_WIDTH * CELL_SIZE
@@ -65,8 +65,8 @@ RESOURCE_VALUE = 2                   # Caloric value of each cell's resources
 
 # Regrowth settings
 REGROWTH_ENABLED = True              # Whether cells can regrow resources
-MIN_REGROWTH_TIME = 100              # Minimum turns for a cell to regenerate
-MAX_REGROWTH_TIME = 200              # Maximum turns for a cell to regenerate
+MIN_REGROWTH_TIME = 200              # Minimum turns for a cell to regenerate
+MAX_REGROWTH_TIME = 300              # Maximum turns for a cell to regenerate
 
 #------------------------------------------------------------------------------
 # Time System Settings
@@ -95,6 +95,10 @@ SENSING_VISUALIZATION_RADIUS = RESOURCE_SENSING_RANGE * CELL_SIZE
 #------------------------------------------------------------------------------
 # Multi-Agent Settings
 #------------------------------------------------------------------------------
+
+# Number of agents in the simulation
+NUM_AGENTS = 4                      # Number of agents in the simulation
+
 
 # Agent colors (used for identification)
 AGENT_COLORS = {

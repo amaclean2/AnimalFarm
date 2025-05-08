@@ -36,39 +36,31 @@ class Agent:
             y (int): The initial y-coordinate of the agent.
             agent_id (str): Identifier for the agent, used for color and stats.
         """
-        self._initialize_position(x, y)
-        self._initialize_identity(agent_id)
-        self._initialize_energy_levels()
-        self._initialize_state()
-        
-        print(f"Agent {agent_id} created at position ({x}, {y})")
-    
-    def _initialize_position(self, x, y):
-        """Initialize the agent's position and movement history."""
+
+        # Initialize agent position and state
         self.x = x
         self.y = y
         self.last_dx = 0
         self.last_dy = 0
-    
-    def _initialize_identity(self, agent_id):
-        """Initialize the agent's identity information."""
+
+        # INitialize agent ID
         self.agent_id = agent_id
-    
-    def _initialize_energy_levels(self):
-        """Initialize the agent's energy levels."""
+
+        # Initialize agent energy levels
         self.calories = INITIAL_CALORIES
         self.max_calories = MAX_CALORIES
-        self.collected_calories = 0  # Calories collected during the day
+        self.collected_calories = 0
         self.sleep_energy = INITIAL_SLEEP
         self.max_sleep_energy = MAX_SLEEP
-    
-    def _initialize_state(self):
-        """Initialize the agent's state variables."""
+
+        # Initialize agent state variables
         self.alive = True
         self.is_sleeping = False
         self.state = self.STATE_ACTIVE
         self.days_survived = 0
-        self.moves_today = 0  # Counter for moves made today
+        self.moves_today = 0
+        
+        print(f"Agent {agent_id} created at position ({x}, {y})")
 
     def update(self, world, is_day):
         """
@@ -101,8 +93,27 @@ class Agent:
             return False
     
     def _update_nighttime(self):
-        """Handle nighttime behavior: eating and sleeping."""
-        return self.night_routine()
+        """
+        Eat collected calories and sleep (nighttime activity).
+        
+        Returns:
+            bool: True if the agent performed an action, False if night routine is complete.
+        """
+        if not self.is_sleeping:
+            # First night cycle: eat calories
+            self.consume_collected_calories()
+            self.is_sleeping = True
+            return True
+        else:
+            # Second+ night cycle: sleep to restore energy
+            self.sleep()
+            
+            # If sleep is full, night is over
+            if self.sleep_energy >= self.max_sleep_energy:
+                self._wake_up()
+                return False  # Night routine complete
+            
+            return True  # Still sleeping
     
     def move(self, world):
         """
@@ -138,30 +149,7 @@ class Agent:
         
         # Check if agent is still alive
         if self.sleep_energy <= 0:
-            self._die()
-    
-    def night_routine(self):
-        """
-        Eat collected calories and sleep (nighttime activity).
-        
-        Returns:
-            bool: True if the agent performed an action, False if night routine is complete.
-        """
-        if not self.is_sleeping:
-            # First night cycle: eat calories
-            self.consume_collected_calories()
-            self.is_sleeping = True
-            return True
-        else:
-            # Second+ night cycle: sleep to restore energy
-            self.sleep()
-            
-            # If sleep is full, night is over
-            if self.sleep_energy >= self.max_sleep_energy:
-                self._wake_up()
-                return False  # Night routine complete
-            
-            return True  # Still sleeping
+            self._die()        
     
     def _wake_up(self):
         """Wake up the agent at the start of a new day."""
@@ -343,18 +331,13 @@ class Agent:
             return
             
         center_x, center_y = screen_pos
-        radius = CELL_SIZE // 2 - 4
+        radius = CELL_SIZE // 2 - 2
         
         # Draw components
         if not self.is_sleeping:
             self._draw_sensing_range(screen, center_x, center_y)
         
         self._draw_agent_body(screen, center_x, center_y, radius)
-        
-        if not self.is_sleeping and (self.last_dx != 0 or self.last_dy != 0):
-            self._draw_direction_indicator(screen, center_x, center_y, radius)
-            
-        self._draw_agent_id(screen, center_x, center_y)
     
     def _get_screen_position(self, camera):
         """Calculate the screen position considering the camera."""
@@ -367,6 +350,7 @@ class Agent:
             screen_pos = camera.world_to_screen(self.x, self.y)
             if not screen_pos:
                 return None
+            
             center_x = screen_pos[0] * CELL_SIZE + CELL_SIZE // 2
             center_y = screen_pos[1] * CELL_SIZE + CELL_SIZE // 2
         else:
@@ -380,6 +364,7 @@ class Agent:
         # Calculate visible sensing range in the viewport
         sensing_radius = min(RESOURCE_SENSING_RANGE, 4) * CELL_SIZE
         sensing_surface = pygame.Surface((sensing_radius * 2, sensing_radius * 2), pygame.SRCALPHA)
+        
         pygame.draw.circle(sensing_surface, COLOR['TRANSPARENT_YELLOW'], 
                          (sensing_radius, sensing_radius), sensing_radius)
         screen.blit(sensing_surface, (center_x - sensing_radius, center_y - sensing_radius))
@@ -393,16 +378,3 @@ class Agent:
             agent_color = AGENT_COLORS[self.agent_id]['awake']
             
         pygame.draw.circle(screen, agent_color, (center_x, center_y), radius)
-    
-    def _draw_direction_indicator(self, screen, center_x, center_y, radius):
-        """Draw an indicator showing the agent's movement direction."""
-        end_x = center_x + self.last_dx * radius * 0.6
-        end_y = center_y + self.last_dy * radius * 0.6
-        pygame.draw.line(screen, COLOR['YELLOW'], (center_x, center_y), (end_x, end_y), 3)
-    
-    def _draw_agent_id(self, screen, center_x, center_y):
-        """Draw the agent's ID on its body."""
-        font = pygame.font.SysFont('Arial', 10)
-        id_text = font.render(self.agent_id[-1], True, COLOR['WHITE'])
-        text_rect = id_text.get_rect(center=(center_x, center_y))
-        screen.blit(id_text, text_rect)

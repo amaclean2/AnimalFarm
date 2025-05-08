@@ -7,7 +7,7 @@ and coordinates all other components of the simulation.
 """
 import pygame
 import sys
-from config import WORLD_SIZE, FPS
+from config import WORLD_SIZE, FPS, NUM_AGENTS
 from models.world import World
 from models.agent import Agent
 from simulation.time_system import TimeSystem
@@ -53,7 +53,7 @@ class Game:
         self.active_agent_index = 0
         
         # Game settings
-        self.agent_count = 4
+        self.agent_count = NUM_AGENTS
         self.debug_mode = False
         self.target_fps = FPS
         
