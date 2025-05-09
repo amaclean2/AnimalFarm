@@ -9,7 +9,8 @@ import pygame
 import random
 from config import (
     CELL_SIZE, COLOR, RESOURCE_VALUE, 
-    MIN_REGROWTH_TIME, MAX_REGROWTH_TIME, REGROWTH_ENABLED
+    MIN_REGROWTH_TIME, MAX_REGROWTH_TIME, REGROWTH_ENABLED,
+    RESOURCE_TYPES, RESOURCE_COLORS
 )
 
 class Cell:
@@ -25,19 +26,31 @@ class Cell:
     STATE_CONSUMED = 1   # Cell is consumed and has no resources
     STATE_REGROWING = 2  # Cell is in the process of regrowing
     
-    def __init__(self, has_resources=True):
+    def __init__(self, has_resources=True, resource_type=None):
         """
         Initialize a new cell.
         
         Args:
             has_resources (bool): Whether this cell starts with resources.
+            resource_type (str): Type of resource in this cell ("food", "water", etc.)
         """
+        self.resource_type = resource_type
         self._initialize_resources(has_resources)
         self._initialize_regrowth()
+        
+        # Cluster tracking
+        self.cluster_id = None
     
     def _initialize_resources(self, has_resources):
         """Initialize the cell's resource state."""
-        self.resources = RESOURCE_VALUE if has_resources else 0
+        # Use resource type-specific value if available
+        if has_resources and self.resource_type and self.resource_type in RESOURCE_VALUE:
+            self.resources = RESOURCE_VALUE[self.resource_type]
+        elif has_resources:
+            self.resources = RESOURCE_VALUE["default"]
+        else:
+            self.resources = 0
+            
         self.state = self.STATE_FULL if has_resources else self.STATE_CONSUMED
     
     def _initialize_regrowth(self):
@@ -45,6 +58,15 @@ class Cell:
         # Assign a random regrowth time within the configured range
         self.regrowth_time = random.randint(MIN_REGROWTH_TIME, MAX_REGROWTH_TIME)
         self.regrowth_counter = 0
+    
+    def has_resources(self):
+        """
+        Check if this cell has resources available.
+        
+        Returns:
+            bool: True if the cell has resources, False otherwise.
+        """
+        return self.state == self.STATE_FULL
     
     def consume(self):
         """
@@ -54,15 +76,21 @@ class Cell:
         depending on whether regrowth is enabled.
         
         Returns:
-            int: The amount of calories obtained from this cell.
+            tuple: (value, resource_type) - The amount of value obtained and the type of resource.
         """
         if self.state == self.STATE_FULL:
             return self._perform_consumption()
-        return 0
+        return 0, None
     
     def _perform_consumption(self):
-        """Handle the actual consumption of resources."""
+        """
+        Handle the actual consumption of resources.
+        
+        Returns:
+            tuple: (value, resource_type) - The amount of value obtained and the type of resource.
+        """
         resources_gained = self.resources
+        resource_type = self.resource_type
         self.resources = 0
         
         # Start regrowth process if enabled, otherwise mark as consumed
@@ -72,7 +100,7 @@ class Cell:
         else:
             self.state = self.STATE_CONSUMED
             
-        return resources_gained
+        return resources_gained, resource_type
     
     def update(self):
         """
@@ -96,7 +124,13 @@ class Cell:
     def _complete_regrowth(self):
         """Complete the regrowth process, restoring resources."""
         self.state = self.STATE_FULL
-        self.resources = RESOURCE_VALUE
+        
+        # Use resource type-specific value if available
+        if self.resource_type and self.resource_type in RESOURCE_VALUE:
+            self.resources = RESOURCE_VALUE[self.resource_type]
+        else:
+            self.resources = RESOURCE_VALUE["default"]
+            
         self.regrowth_counter = 0
         
         # Assign a new random regrowth time for next cycle
@@ -137,23 +171,40 @@ class Cell:
             self._draw_regrowth_indicator(screen, rect)
     
     def _get_cell_color(self, night_mode):
-        """Get the appropriate color based on cell state and time of day."""
+        """Get the appropriate color based on cell state, resource type, and time of day."""
+        # Default colors
         if night_mode:
-            # Night colors
-            if self.state == self.STATE_FULL:
-                return COLOR['DARK_GREEN']
-            elif self.state == self.STATE_REGROWING:
-                return COLOR['DARK_LIGHT_GREEN']
-            else:  # STATE_CONSUMED
-                return COLOR['DARK_BROWN']
+            full_color = COLOR['DARK_GREEN']  # Default full cell color (night)
+            regrowing_color = COLOR['DARK_LIGHT_GREEN']  # Default regrowing color (night)
+            consumed_color = COLOR['DARK_BROWN']  # Default consumed color (night)
         else:
-            # Day colors
-            if self.state == self.STATE_FULL:
-                return COLOR['GREEN']
-            elif self.state == self.STATE_REGROWING:
-                return COLOR['LIGHT_GREEN']
-            else:  # STATE_CONSUMED
-                return COLOR['BROWN']
+            full_color = COLOR['GREEN']  # Default full cell color (day)
+            regrowing_color = COLOR['LIGHT_GREEN']  # Default regrowing color (day)
+            consumed_color = COLOR['BROWN']  # Default consumed color (day)
+        
+        # Use resource-specific colors if available
+        if self.resource_type and self.resource_type in RESOURCE_COLORS:
+            if night_mode:
+                # Darken the color for night mode
+                day_color = RESOURCE_COLORS[self.resource_type]
+                full_color = (day_color[0]//2, day_color[1]//2, day_color[2]//2)
+                regrowing_color = (day_color[0]//3, day_color[1]//3, day_color[2]//3)
+            else:
+                full_color = RESOURCE_COLORS[self.resource_type]
+                # Create a lighter version for regrowing
+                regrowing_color = (
+                    min(255, full_color[0] + 80),
+                    min(255, full_color[1] + 80),
+                    min(255, full_color[2] + 80)
+                )
+        
+        # Return the appropriate color based on cell state
+        if self.state == self.STATE_FULL:
+            return full_color
+        elif self.state == self.STATE_REGROWING:
+            return regrowing_color
+        else:  # STATE_CONSUMED
+            return consumed_color
     
     def _draw_regrowth_indicator(self, screen, rect):
         """Draw an indicator showing regrowth progress."""
@@ -175,5 +226,10 @@ class Cell:
             indicator_height
         )
         
-        # Use a brighter green to stand out
-        pygame.draw.rect(screen, COLOR['GREEN'], indicator_rect)
+        # Use resource-specific colors for the indicator if available
+        if self.resource_type and self.resource_type in RESOURCE_COLORS:
+            indicator_color = RESOURCE_COLORS[self.resource_type]
+        else:
+            indicator_color = COLOR['GREEN']
+            
+        pygame.draw.rect(screen, indicator_color, indicator_rect)

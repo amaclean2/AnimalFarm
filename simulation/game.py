@@ -7,7 +7,7 @@ and coordinates all other components of the simulation.
 """
 import pygame
 import sys
-from config import WORLD_SIZE, FPS, NUM_AGENTS
+from config import WORLD_SIZE, FPS, NUM_AGENTS, HOME_BASE_POSITION
 from models.world import World
 from models.agent import Agent
 from simulation.time_system import TimeSystem
@@ -61,6 +61,9 @@ class Game:
         self.world = None
         self.agents = []
         
+        # Home base coordinates
+        self.home_base_x, self.home_base_y = HOME_BASE_POSITION
+        
         # Initialize the simulation
         self._initialize_game()
         
@@ -82,28 +85,25 @@ class Game:
         self.active_agent_index = 0
         
         print(f"Game started with {len(self.agents)} agents!")
+        print(f"Home base established at ({self.home_base_x}, {self.home_base_y})")
     
     def _create_agents(self):
         """
-        Create and position all agents in the world.
+        Create and position all agents at the home base.
         """
-        from config import AGENT_START_POSITIONS, WORLD_SIZE
         from models.agent import Agent
         
         self.agents = []
         
         # Create the specified number of agents
         for i in range(self.agent_count):
-            # Calculate position from the configuration
-            pos_x, pos_y = AGENT_START_POSITIONS[i]
-            x = int(pos_x * WORLD_SIZE)
-            y = int(pos_y * WORLD_SIZE)
+            # All agents start at the home base
             agent_id = f"agent{i+1}"
             
             # Create the agent
-            self.agents.append(Agent(x, y, agent_id))
+            self.agents.append(Agent(self.home_base_x, self.home_base_y, agent_id))
         
-        print(f"Created {len(self.agents)} agents")
+        print(f"Created {len(self.agents)} agents at home base")
     
     def set_agent_count(self, count):
         """
@@ -128,17 +128,13 @@ class Game:
         elif len(self.agents) < self.agent_count:
             # Need to add more agents
             current_count = len(self.agents)
-            from config import AGENT_START_POSITIONS, WORLD_SIZE
             
-            # Add missing agents
+            # Add missing agents at the home base
             for i in range(current_count, self.agent_count):
-                pos_x, pos_y = AGENT_START_POSITIONS[i]
-                x = int(pos_x * WORLD_SIZE)
-                y = int(pos_y * WORLD_SIZE)
                 agent_id = f"agent{i+1}"
                 
                 from models.agent import Agent
-                self.agents.append(Agent(x, y, agent_id))
+                self.agents.append(Agent(self.home_base_x, self.home_base_y, agent_id))
         
         # Reset active agent
         self.active_agent_index = 0
@@ -294,9 +290,26 @@ class Game:
         """Check if the time of day should change."""
         time_changed = self.time_system.update(self.agents)
         
-        if time_changed and self.time_system.is_day:
-            # New day has begun, ensure active agent is alive
-            self._ensure_active_agent_alive()
+        # Handle day-night transitions
+        if time_changed:
+            if self.time_system.is_day:
+                # New day has begun, ensure active agent is alive
+                self._ensure_active_agent_alive()
+            else:
+                # Night has begun, check which agents made it home
+                self._check_agents_at_home()
+    
+    def _check_agents_at_home(self):
+        """Check which agents successfully made it back to home base before nightfall."""
+        for agent in self.agents:
+            if agent.alive:
+                if agent.is_at_home():
+                    print(f"{agent.agent_id} made it back to home base!")
+                else:
+                    # Agent didn't make it back - they lose half their collected calories
+                    penalty = agent.collected_calories // 2
+                    agent.collected_calories -= penalty
+                    print(f"{agent.agent_id} didn't make it home! Lost {penalty} calories.")
     
     def _ensure_active_agent_alive(self):
         """Make sure the active agent is a living one."""
@@ -321,7 +334,8 @@ class Game:
             self.active_agent_index,
             self.time_system.is_day, 
             self.turns,
-            self.state
+            self.state,
+            (self.home_base_x, self.home_base_y)  # Pass home base coordinates
         )
     
     def _print_final_stats(self):
@@ -334,6 +348,7 @@ class Game:
         # Agent statistics
         for i, agent in enumerate(self.agents):
             print(f"Agent {i+1} ({agent.agent_id}) survived for {agent.days_survived} days")
+            print(f"  Total distance traveled: {agent.total_distance_traveled}")
             
         # World statistics
         print(f"\nWorld Status:")

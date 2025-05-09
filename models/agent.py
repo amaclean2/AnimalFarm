@@ -6,12 +6,13 @@ resources, and attempts to survive as long as possible by managing its energy le
 """
 import pygame
 import random
+import math
 from config import (
     CELL_SIZE, COLOR, INITIAL_CALORIES, MAX_CALORIES,
     INITIAL_SLEEP, MAX_SLEEP, RESOURCE_SENSING_RANGE,
     OPTIMAL_CHOICE_PROBABILITY, SLEEP_ENERGY_GAIN,
     CALORIE_CONSUMPTION_PER_DAY, MOVES_PER_DAY,
-    AGENT_COLORS
+    AGENT_COLORS, HOME_BASE_POSITION
 )
 
 class Agent:
@@ -23,9 +24,10 @@ class Agent:
     """
     
     # Define agent states
-    STATE_ACTIVE = 0   # Agent is awake and moving
-    STATE_SLEEPING = 1 # Agent is sleeping
-    STATE_DEAD = 2     # Agent is dead
+    STATE_ACTIVE = 0     # Agent is awake and moving/foraging
+    STATE_RETURNING = 1  # Agent is returning to home base
+    STATE_SLEEPING = 2   # Agent is sleeping
+    STATE_DEAD = 3       # Agent is dead
     
     def __init__(self, x, y, agent_id="agent1"):
         """
@@ -43,7 +45,7 @@ class Agent:
         self.last_dx = 0
         self.last_dy = 0
 
-        # INitialize agent ID
+        # Initialize agent ID
         self.agent_id = agent_id
 
         # Initialize agent energy levels
@@ -60,11 +62,21 @@ class Agent:
         self.days_survived = 0
         self.moves_today = 0
         
+        # Distance traveled stats
+        self.total_distance_traveled = 0
+        
+        # Home base coordinates
+        self.home_x, self.home_y = HOME_BASE_POSITION
+        
+        # Path planning
+        self.returning_home = False
+        self.path_to_home = []
+        
         print(f"Agent {agent_id} created at position ({x}, {y})")
 
     def update(self, world, is_day):
         """
-        Update the agent based on the time of day.
+        Update the agent based on the time of day and current state.
         
         Args:
             world (World): The world the agent is in.
@@ -82,15 +94,33 @@ class Agent:
             return self._update_nighttime()
     
     def _update_daytime(self, world):
-        """Handle daytime behavior: moving and collecting resources."""
-        if self.moves_today < MOVES_PER_DAY:
-            # Make a move to collect calories
-            result = self.move(world)
-            self.moves_today += 1
-            return result
+        """Handle daytime behavior: moving, collecting resources, or returning home."""
+        # Calculate distance to home
+        distance_to_home = self.get_distance_to_home()
+        moves_remaining = MOVES_PER_DAY - self.moves_today
+        
+        # Determine if we need to start returning home
+        if not self.returning_home and distance_to_home >= moves_remaining:
+            self.returning_home = True
+            self.state = self.STATE_RETURNING
+            self._calculate_path_to_home()
+            print(f"{self.agent_id} starting to return home with {moves_remaining} moves left")
+        
+        # Either continue foraging or return home
+        if self.returning_home:
+            result = self._move_towards_home(world)
         else:
-            # Day is over, agent should enter night phase
-            return False
+            # Regular foraging
+            if self.moves_today < MOVES_PER_DAY:
+                result = self.move(world)
+            else:
+                result = False  # No more moves today
+        
+        # Update move counter if a move was made
+        if result:
+            self.moves_today += 1
+        
+        return result
     
     def _update_nighttime(self):
         """
@@ -99,10 +129,15 @@ class Agent:
         Returns:
             bool: True if the agent performed an action, False if night routine is complete.
         """
+        # Reset returning home state
+        self.returning_home = False
+        self.path_to_home = []
+        
         if not self.is_sleeping:
             # First night cycle: eat calories
             self.consume_collected_calories()
             self.is_sleeping = True
+            self.state = self.STATE_SLEEPING
             return True
         else:
             # Second+ night cycle: sleep to restore energy
@@ -114,6 +149,83 @@ class Agent:
                 return False  # Night routine complete
             
             return True  # Still sleeping
+    
+    def get_distance_to_home(self):
+        """Calculate Manhattan distance from current position to home base."""
+        return abs(self.x - self.home_x) + abs(self.y - self.home_y)
+    
+    def _calculate_path_to_home(self):
+        """Calculate a direct path to home base."""
+        self.path_to_home = []
+        
+        # Calculate the number of steps in each direction
+        dx = self.home_x - self.x
+        dy = self.home_y - self.y
+        
+        # Create path by alternating x and y steps
+        x, y = self.x, self.y
+        
+        # Handle x direction first
+        steps_x = abs(dx)
+        direction_x = 1 if dx > 0 else -1
+        
+        for _ in range(steps_x):
+            x += direction_x
+            self.path_to_home.append((x, y))
+        
+        # Then handle y direction
+        steps_y = abs(dy)
+        direction_y = 1 if dy > 0 else -1
+        
+        for _ in range(steps_y):
+            y += direction_y
+            self.path_to_home.append((x, y))
+    
+    def _move_towards_home(self, world):
+        """Move along the calculated path to home."""
+        if not self.path_to_home:
+            # Already at home or no path calculated
+            self.returning_home = False
+            return False
+        
+        # Get the next step in the path
+        next_x, next_y = self.path_to_home[0]
+        
+        # Check if the move is valid
+        if world.is_valid_position(next_x, next_y):
+            # Calculate movement direction for animation
+            self.last_dx = next_x - self.x
+            self.last_dy = next_y - self.y
+            
+            # Update position
+            self.x, self.y = next_x, next_y
+            
+            # Remove this step from the path
+            self.path_to_home.pop(0)
+            
+            # Moving costs sleep energy
+            self.sleep_energy -= 1
+            
+            # Check if agent is still alive
+            if self.sleep_energy <= 0:
+                self._die()
+                return False
+                
+            # Consume resources if we landed on a resource cell
+            calories_gained = world.consume_resources(self.x, self.y)
+            self.collected_calories += calories_gained
+            
+            # Check if we've reached home
+            if self.x == self.home_x and self.y == self.home_y:
+                self.returning_home = False
+                self.path_to_home = []
+                print(f"{self.agent_id} has reached home with {MOVES_PER_DAY - self.moves_today} moves left")
+            
+            return True
+        else:
+            # Invalid move, recalculate path
+            self._calculate_path_to_home()
+            return False
     
     def move(self, world):
         """
@@ -131,6 +243,11 @@ class Agent:
         # Make sure the new position is valid
         if world.is_valid_position(new_x, new_y):
             self._perform_move(new_x, new_y, world)
+            
+            # Calculate distance traveled (Manhattan distance)
+            distance = abs(new_x - self.x) + abs(new_y - self.y)
+            self.total_distance_traveled += distance
+            
             return True  # Made a move
         
         return False  # Couldn't move
@@ -154,6 +271,7 @@ class Agent:
     def _wake_up(self):
         """Wake up the agent at the start of a new day."""
         self.is_sleeping = False
+        self.state = self.STATE_ACTIVE
         self.moves_today = 0  # Reset for the new day
         self.days_survived += 1  # Count a new day
     
@@ -317,6 +435,22 @@ class Agent:
         if self.sleep_energy > self.max_sleep_energy:
             self.sleep_energy = self.max_sleep_energy
     
+    def is_at_home(self):
+        """Check if the agent is currently at the home base."""
+        return self.x == self.home_x and self.y == self.home_y
+    
+    def get_state_description(self):
+        """Get a textual description of the agent's current state."""
+        if self.state == self.STATE_ACTIVE:
+            return "Foraging"
+        elif self.state == self.STATE_RETURNING:
+            return "Returning Home"
+        elif self.state == self.STATE_SLEEPING:
+            return "Sleeping"
+        elif self.state == self.STATE_DEAD:
+            return "Dead"
+        return "Unknown"
+    
     def draw(self, screen, camera=None):
         """
         Draw the agent on the screen.
@@ -334,10 +468,14 @@ class Agent:
         radius = CELL_SIZE // 2 - 2
         
         # Draw components
-        if not self.is_sleeping:
+        if self.state == self.STATE_ACTIVE:
             self._draw_sensing_range(screen, center_x, center_y)
         
         self._draw_agent_body(screen, center_x, center_y, radius)
+        
+        # Draw direction indicator
+        if (self.state == self.STATE_ACTIVE or self.state == self.STATE_RETURNING) and (self.last_dx != 0 or self.last_dy != 0):
+            self._draw_direction_indicator(screen, center_x, center_y, radius)
     
     def _get_screen_position(self, camera):
         """Calculate the screen position considering the camera."""
@@ -372,9 +510,27 @@ class Agent:
     def _draw_agent_body(self, screen, center_x, center_y, radius):
         """Draw the agent's body."""
         # Draw agent circle with color based on agent ID and state
-        if self.is_sleeping:
+        if self.state == self.STATE_SLEEPING:
             agent_color = AGENT_COLORS[self.agent_id]['asleep']
+        elif self.state == self.STATE_RETURNING:
+            # Use a darker shade of the agent's color for returning home
+            base_color = AGENT_COLORS[self.agent_id]['awake']
+            agent_color = (base_color[0] // 2, base_color[1] // 2, base_color[2] // 2)
         else:
             agent_color = AGENT_COLORS[self.agent_id]['awake']
             
         pygame.draw.circle(screen, agent_color, (center_x, center_y), radius)
+        
+        # If returning home, add a small indicator
+        if self.state == self.STATE_RETURNING:
+            # Draw a small home indicator in the center
+            indicator_size = radius // 2
+            pygame.draw.rect(screen, COLOR['YELLOW'], 
+                           (center_x - indicator_size//2, center_y - indicator_size//2, 
+                            indicator_size, indicator_size))
+    
+    def _draw_direction_indicator(self, screen, center_x, center_y, radius):
+        """Draw an indicator showing the agent's movement direction."""
+        end_x = center_x + self.last_dx * radius * 0.6
+        end_y = center_y + self.last_dy * radius * 0.6
+        pygame.draw.line(screen, COLOR['YELLOW'], (center_x, center_y), (end_x, end_y), 3)

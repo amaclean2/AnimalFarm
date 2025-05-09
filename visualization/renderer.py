@@ -6,7 +6,7 @@ of the simulation, including the world, agents, UI components, and special effec
 It handles the drawing order, camera management, and visual state transitions.
 """
 import pygame
-from config import COLOR, SCREEN_WIDTH, SCREEN_HEIGHT
+from config import COLOR, SCREEN_WIDTH, SCREEN_HEIGHT, CELL_SIZE
 from visualization.status_panel import StatusPanel
 from visualization.game_ui import GameUI
 from visualization.camera import Camera
@@ -43,7 +43,7 @@ class Renderer:
         self._weather_overlay = None
         self._light_level = 1.0  # 0.0 = dark, 1.0 = full brightness
     
-    def render_frame(self, screen, world, agents, active_agent_index, is_day, turns, game_state):
+    def render_frame(self, screen, world, agents, active_agent_index, is_day, turns, game_state, home_base=None):
         """
         Render a complete frame of the simulation.
         
@@ -55,6 +55,7 @@ class Renderer:
             is_day (bool): Whether it is currently day or night.
             turns (int): The current turn count.
             game_state: The current state of the game (running, paused, game over).
+            home_base (tuple): Optional (x, y) coordinates of the home base.
         """
         # Increment frame counter for animations
         self.frame_count += 1
@@ -71,6 +72,10 @@ class Renderer:
         # Draw the world
         self._draw_world(screen, world, is_day)
         
+        # Draw home base if provided
+        if home_base:
+            self._draw_home_base(screen, home_base, is_day)
+        
         # Draw all agents
         self._draw_agents(screen, agents, active_agent_index)
         
@@ -79,11 +84,11 @@ class Renderer:
             self._draw_environmental_effects(screen, is_day)
         
         # Draw UI elements based on game state
-        self._draw_ui_elements(screen, world, agents, active_agent, turns, is_day, game_state)
+        self._draw_ui_elements(screen, world, agents, active_agent, turns, is_day, game_state, home_base)
         
         # Draw debug info if enabled
         if self.show_debug_info:
-            self._draw_debug_info(screen, world, agents, active_agent, turns)
+            self._draw_debug_info(screen, world, agents, active_agent, turns, home_base)
         
         # Update the display
         pygame.display.flip()
@@ -109,6 +114,47 @@ class Renderer:
     def _draw_world(self, screen, world, is_day):
         """Draw the world using the camera."""
         world.draw(screen, night_mode=not is_day, camera=self.camera)
+    
+    def _draw_home_base(self, screen, home_base, is_day):
+        """
+        Draw the home base on the screen.
+        
+        Args:
+            screen: The pygame screen to draw on.
+            home_base (tuple): (x, y) coordinates of the home base.
+            is_day (bool): Whether it is currently day or night.
+        """
+        home_x, home_y = home_base
+        
+        # Check if home base is visible on screen
+        if not self.camera.is_visible(home_x, home_y):
+            return
+            
+        # Convert world coordinates to screen coordinates
+        screen_pos = self.camera.world_to_screen(home_x, home_y)
+        if not screen_pos:
+            return
+            
+        # Calculate pixel position
+        center_x = screen_pos[0] * CELL_SIZE + CELL_SIZE // 2
+        center_y = screen_pos[1] * CELL_SIZE + CELL_SIZE // 2
+        
+        # Draw home base with a distinctive marker
+        base_radius = CELL_SIZE // 2
+        base_color = COLOR['YELLOW'] if is_day else (200, 200, 100)  # Yellowish color
+        
+        # Draw outer circle
+        pygame.draw.circle(screen, base_color, (center_x, center_y), base_radius, 3)
+        
+        # Draw inner cross
+        pygame.draw.line(screen, base_color, 
+                        (center_x - base_radius//2, center_y), 
+                        (center_x + base_radius//2, center_y), 
+                        2)
+        pygame.draw.line(screen, base_color, 
+                        (center_x, center_y - base_radius//2), 
+                        (center_x, center_y + base_radius//2), 
+                        2)
     
     def _draw_agents(self, screen, agents, active_agent_index):
         """Draw all agents and ghost indicators for dead agents."""
@@ -136,7 +182,6 @@ class Renderer:
             return
             
         # Calculate pixel position
-        from config import CELL_SIZE
         center_x = screen_pos[0] * CELL_SIZE + CELL_SIZE // 2
         center_y = screen_pos[1] * CELL_SIZE + CELL_SIZE // 2
         radius = CELL_SIZE // 2 - 4
@@ -160,12 +205,12 @@ class Renderer:
         # This is a placeholder for future expansion
         pass
     
-    def _draw_ui_elements(self, screen, world, agents, active_agent, turns, is_day, game_state):
+    def _draw_ui_elements(self, screen, world, agents, active_agent, turns, is_day, game_state, home_base=None):
         """Draw all UI elements based on the current game state."""
         
         # Draw status panel for the active agent
         if active_agent:
-            self.status_panel.draw(screen, active_agent, turns, is_day, world)
+            self.status_panel.draw(screen, active_agent, turns, is_day, world, home_base)
         
         # Draw state-dependent UI
         if game_state == self.STATE_PAUSED:
@@ -176,7 +221,7 @@ class Renderer:
                 best_agent = max(agents, key=lambda a: a.days_survived)
                 self.game_ui.draw_game_over(screen, best_agent)
     
-    def _draw_debug_info(self, screen, world, agents, active_agent, turns):
+    def _draw_debug_info(self, screen, world, agents, active_agent, turns, home_base=None):
         """Draw debug information on screen."""
         debug_lines = [
             f"FPS: {int(pygame.time.Clock().get_fps())}",
@@ -187,6 +232,9 @@ class Renderer:
         
         if active_agent:
             debug_lines.append(f"Active Agent: {active_agent.agent_id} at ({active_agent.x},{active_agent.y})")
+        
+        if home_base:
+            debug_lines.append(f"Home Base: ({home_base[0]}, {home_base[1]})")
         
         # Additional world stats
         cell_stats = world.count_cells_by_state()

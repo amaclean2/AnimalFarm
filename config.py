@@ -11,12 +11,12 @@ without modifying the core code.
 #------------------------------------------------------------------------------
 
 # Basic display settings
-CELL_SIZE = 25                       # Size of each cell in pixels (increased from 20)
+CELL_SIZE = 25                       # Size of each cell in pixels
 WORLD_SIZE = 50                      # Size of the world grid (WORLD_SIZE x WORLD_SIZE)
 
 # Viewport settings
-VIEWPORT_WIDTH = 40                  # How many cells wide the viewport is (increased from 30)
-VIEWPORT_HEIGHT = 30                 # How many cells tall the viewport is (increased from 25)
+VIEWPORT_WIDTH = 40                  # How many cells wide the viewport is
+VIEWPORT_HEIGHT = 30                 # How many cells tall the viewport is
 STATUS_PANEL_HEIGHT = 230            # Height of the status panel in pixels
 
 # Screen dimensions (calculated from the above)
@@ -24,7 +24,7 @@ SCREEN_WIDTH = VIEWPORT_WIDTH * CELL_SIZE
 SCREEN_HEIGHT = VIEWPORT_HEIGHT * CELL_SIZE + STATUS_PANEL_HEIGHT
 
 # Rendering settings
-FPS = 12                              # Frames per second cap
+FPS = 12                             # Frames per second cap
 
 #------------------------------------------------------------------------------
 # Color Definitions
@@ -56,12 +56,45 @@ COLOR = {
 }
 
 #------------------------------------------------------------------------------
-# World Settings
+# Resource Types and Values
 #------------------------------------------------------------------------------
 
-# Resource settings
-INITIAL_RESOURCE_PERCENTAGE = 0.03    # Percentage of cells that start with resources
-RESOURCE_VALUE = 20                   # Caloric value of each cell's resources
+# Define resource types and their properties
+RESOURCE_TYPES = ["food", "water"]  # All resource types in the simulation
+
+# Resource values (how much benefit agent gets from each type)
+RESOURCE_VALUE = {
+    "default": 10,       # Default resource value
+    "food": 20,          # Food provides calories
+    "water": 15          # Water provides hydration
+}
+
+# Resource colors for visualization
+RESOURCE_COLORS = {
+    "food": (0, 200, 0),      # Green for food
+    "water": (0, 100, 255)    # Blue for water
+}
+
+#------------------------------------------------------------------------------
+# Resource Cluster Settings
+#------------------------------------------------------------------------------
+
+# Food cluster settings
+FOOD_CLUSTER_COUNT = 6               # Number of food clusters in the world
+FOOD_CLUSTER_SIZE_RANGE = (10, 30)   # Min/max number of cells per food cluster
+FOOD_CLUSTER_DENSITY = 0.7           # Probability of spreading to adjacent cells
+
+# Water cluster settings
+WATER_CLUSTER_COUNT = 3              # Number of water sources
+WATER_CLUSTER_SIZE_RANGE = (20, 40)  # Min/max size for water clusters
+WATER_CLUSTER_DENSITY = 0.8          # Probability of spreading to adjacent cells
+
+# Overall resource distribution
+INITIAL_RESOURCE_PERCENTAGE = 0.03    # Approximate percentage of cells with resources
+
+#------------------------------------------------------------------------------
+# World Settings
+#------------------------------------------------------------------------------
 
 # Regrowth settings
 REGROWTH_ENABLED = True              # Whether cells can regrow resources
@@ -87,10 +120,23 @@ MAX_SLEEP = 100                      # Maximum sleep energy
 SLEEP_ENERGY_GAIN = 10               # Sleep energy gained per turn while sleeping
 CALORIE_CONSUMPTION_PER_DAY = 25     # Calories consumed each night
 
+# Water settings
+INITIAL_WATER = 30                   # Starting water level
+MAX_WATER = 70                       # Maximum water storage
+WATER_CONSUMPTION_PER_DAY = 20       # Water consumed each night
+
 # Movement settings
 RESOURCE_SENSING_RANGE = 4           # How far the agent can "see" resources
 OPTIMAL_CHOICE_PROBABILITY = 0.8     # Probability of choosing the closest resource
 SENSING_VISUALIZATION_RADIUS = RESOURCE_SENSING_RANGE * CELL_SIZE
+
+#------------------------------------------------------------------------------
+# Home Base Settings
+#------------------------------------------------------------------------------
+
+# Home base configuration
+HOME_BASE_POSITION = (25, 25)        # (x, y) coordinates of the home base (center of the world)
+HOME_BASE_ENABLED = True             # Whether agents return to home base at night
 
 #------------------------------------------------------------------------------
 # Multi-Agent Settings
@@ -99,6 +145,25 @@ SENSING_VISUALIZATION_RADIUS = RESOURCE_SENSING_RANGE * CELL_SIZE
 # Number of agents in the simulation
 NUM_AGENTS = 4                      # Number of agents in the simulation
 
+# Agent roles
+AGENT_ROLES = {
+    "food_gatherer": {
+        "description": "Specializes in gathering food resources",
+        "sensing_boost": 1.5,       # Better at finding food
+    },
+    "water_gatherer": {
+        "description": "Specializes in gathering water resources",
+        "sensing_boost": 1.5,       # Better at finding water
+    },
+    "explorer": {
+        "description": "Specializes in exploring new territory",
+        "move_boost": 1.5,          # Can move faster/more efficiently
+    },
+    "generalist": {
+        "description": "Balanced abilities across all tasks",
+        "efficiency_boost": 1.2,    # Slightly more efficient at everything
+    }
+}
 
 # Agent colors (used for identification)
 AGENT_COLORS = {
@@ -121,6 +186,7 @@ AGENT_COLORS = {
 }
 
 # Starting positions (as fractions of world size)
+# Note: These are ignored if HOME_BASE_ENABLED is True, as all agents will start at the home base
 AGENT_START_POSITIONS = [
     (0.25, 0.25),                    # Northwest
     (0.75, 0.25),                    # Northeast

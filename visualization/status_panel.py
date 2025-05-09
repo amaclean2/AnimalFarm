@@ -38,9 +38,9 @@ class StatusPanel:
     
     def _initialize_fonts(self):
         """Initialize fonts used by the status panel."""
-        self.title_font = pygame.font.SysFont('Arial', 18, bold=True)
-        self.font = pygame.font.SysFont('Arial', 16)
-        self.small_font = pygame.font.SysFont('Arial', 14)
+        self.title_font = pygame.font.SysFont('Arial', 20, bold=True)
+        self.font = pygame.font.SysFont('Arial', 18)
+        self.small_font = pygame.font.SysFont('Arial', 16)
     
     def _initialize_layout(self):
         """Initialize the layout of the status panel sections."""
@@ -82,7 +82,7 @@ class StatusPanel:
             }
         }
     
-    def draw(self, screen, agent, turns, is_day, world=None):
+    def draw(self, screen, agent, turns, is_day, world=None, home_base=None):
         """
         Draw the status panel with agent information.
         
@@ -92,12 +92,13 @@ class StatusPanel:
             turns (int): The current turn count.
             is_day (bool): Whether it is currently day or night.
             world (World): The world object for additional stats.
+            home_base (tuple): Optional (x, y) coordinates of the home base.
         """
         # Draw background
         self._draw_background(screen)
         
         # Draw sections
-        self._draw_agent_info(screen, agent)
+        self._draw_agent_info(screen, agent, home_base)
         self._draw_energy_bars(screen, agent)
         
         if world:
@@ -110,8 +111,31 @@ class StatusPanel:
         # Main panel background
         panel_rect = pygame.Rect(0, self.y_position, SCREEN_WIDTH, self.height)
         pygame.draw.rect(screen, COLOR['GRAY'], panel_rect)
+        
+        # Divider lines
+        divider_color = (100, 100, 100)  # Darker gray for dividers
+        
+        # Calculate divider positions based on layout
+        center_x = self.layout['agent_info']['x'] + self.layout['agent_info']['width'] + 20
+        
+        # Vertical divider
+        pygame.draw.line(
+            screen, divider_color, 
+            (center_x, self.y_position + 10),  # Start 10px from top
+            (center_x, self.y_position + 160),  # End before world info
+            2
+        )
+                       
+        # Horizontal divider
+        horizontal_y = self.y_position + 160
+        pygame.draw.line(
+            screen, divider_color, 
+            (20, horizontal_y),  # Start with margin
+            (SCREEN_WIDTH - 20, horizontal_y),  # End with margin
+            2
+        )
     
-    def _draw_agent_info(self, screen, agent):
+    def _draw_agent_info(self, screen, agent, home_base=None):
         """Draw agent information on the left side."""
         section = self.layout['agent_info']
         base_x, base_y = section['x'], self.y_position + section['y']
@@ -135,16 +159,32 @@ class StatusPanel:
         line_height = 25  # Increased line height
         stats_y_start = base_y + 35  # More space after title
         
+        # Basic stats (position and activity)
         stats = [
             self._format_position(agent),
             self._format_status(agent),
-            self._format_days_survived(agent),
-            self._format_moves_today(agent)
+            self._format_days_survived(agent)
         ]
+        
+        # Add home distance if home base is provided
+        if home_base:
+            home_x, home_y = home_base
+            distance_to_home = self._calculate_distance_to_home(agent, home_x, home_y)
+            stats.append(f"Distance to Home: {distance_to_home}")
+        
+        # Add remaining moves or sleep info
+        if agent.state == agent.STATE_SLEEPING:
+            stats.append(f"Sleep Progress: {int((agent.sleep_energy / agent.max_sleep_energy) * 100)}%")
+        else:
+            stats.append(f"Moves Today: {agent.moves_today}/{MOVES_PER_DAY}")
         
         for i, stat in enumerate(stats):
             text = self.font.render(stat, True, COLOR['BLACK'])
             screen.blit(text, (base_x, stats_y_start + i * line_height))
+    
+    def _calculate_distance_to_home(self, agent, home_x, home_y):
+        """Calculate Manhattan distance from agent to home base."""
+        return abs(agent.x - home_x) + abs(agent.y - home_y)
     
     def _format_position(self, agent):
         """Format the agent position text."""
@@ -154,21 +194,12 @@ class StatusPanel:
         """Format the agent status text."""
         if not agent.alive:
             return "Status: Dead"
-        elif agent.is_sleeping:
-            return "Status: Sleeping"
         else:
-            return "Status: Awake"
+            return f"Status: {agent.get_state_description()}"
     
     def _format_days_survived(self, agent):
         """Format the days survived text."""
         return f"Days Survived: {agent.days_survived}"
-    
-    def _format_moves_today(self, agent):
-        """Format the moves today text."""
-        if agent.is_sleeping:
-            return f"Sleep Progress: {int((agent.sleep_energy / agent.max_sleep_energy) * 100)}%"
-        else:
-            return f"Moves Today: {agent.moves_today}/{MOVES_PER_DAY}"
     
     def _get_agent_color(self, agent):
         """Get the current color for the agent based on its state."""
@@ -176,8 +207,12 @@ class StatusPanel:
         
         if not agent.alive:
             return (150, 150, 150)  # Gray for dead
-        elif agent.is_sleeping:
+        elif agent.state == agent.STATE_SLEEPING:
             return AGENT_COLORS[agent.agent_id]['asleep']
+        elif agent.state == agent.STATE_RETURNING:
+            # Use a darker shade for returning home
+            base_color = AGENT_COLORS[agent.agent_id]['awake']
+            return (base_color[0] // 2, base_color[1] // 2, base_color[2] // 2)
         else:
             return AGENT_COLORS[agent.agent_id]['awake']
     
