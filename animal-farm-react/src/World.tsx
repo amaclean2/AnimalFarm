@@ -6,7 +6,7 @@ export const World = () => {
   const GRID_SIZE = 100
   const CELL_SIZE = 30
   const WORLD_SIZE = GRID_SIZE * CELL_SIZE
-  const SCROLL_SPEED = 100
+  const SCROLL_SPEED = 12
 
   const [cameraX, setCameraX] = useState(0)
   const [cameraY, setCameraY] = useState(0)
@@ -14,8 +14,10 @@ export const World = () => {
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth)
   const [viewportHeight, setViewportHeight] = useState(window.innerHeight)
 
+  const keysPressed = useRef(new Set<string>())
+
   const generateCellColor = (x: number, y: number) => {
-    const hue = Math.floor(Math.random() * 360)
+    const hue = ((x * 7 + y * 13) * 137.5) % 360
     const saturation = 40 + ((x + y) % 60)
     const lightness = 30 + ((x * y) % 40)
 
@@ -57,6 +59,35 @@ export const World = () => {
   }
 
   useEffect(() => {
+    let animationId: number
+
+    const animate = () => {
+      let deltaX = 0
+      let deltaY = 0
+
+      if (keysPressed.current.has('ArrowUp')) deltaY -= SCROLL_SPEED
+      if (keysPressed.current.has('ArrowDown')) deltaY += SCROLL_SPEED
+      if (keysPressed.current.has('ArrowLeft')) deltaX -= SCROLL_SPEED
+      if (keysPressed.current.has('ArrowRight')) deltaX += SCROLL_SPEED
+
+      if (deltaX !== 0 || deltaY !== 0) {
+        setCameraX((prev) =>
+          Math.max(0, Math.min(WORLD_SIZE - viewportWidth, prev + deltaX))
+        )
+        setCameraY((prev) =>
+          Math.max(0, Math.min(WORLD_SIZE - viewportHeight, prev + deltaY))
+        )
+      }
+
+      animationId = requestAnimationFrame(animate)
+    }
+
+    animationId = requestAnimationFrame(animate)
+
+    return () => cancelAnimationFrame(animationId)
+  }, [viewportWidth, viewportHeight])
+
+  useEffect(() => {
     const handleResize = () => {
       setViewportWidth(window.innerWidth)
       setViewportHeight(window.innerHeight)
@@ -72,40 +103,35 @@ export const World = () => {
 
   useEffect(() => {
     drawGrid()
-  }, [cameraX, cameraY])
+  }, [cameraX, cameraY, viewportWidth, viewportHeight])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      switch (event.key) {
-        case 'ArrowUp':
-          event.preventDefault()
-          setCameraY((prev) => Math.max(0, prev - SCROLL_SPEED))
-          break
-        case 'ArrowDown':
-          event.preventDefault()
-          setCameraY((prev) =>
-            Math.min(WORLD_SIZE - viewportHeight, prev + SCROLL_SPEED)
-          )
-          break
-        case 'ArrowLeft':
-          event.preventDefault()
-          setCameraX((prev) => Math.max(0, prev - SCROLL_SPEED))
-          break
-        case 'ArrowRight':
-          event.preventDefault()
-          setCameraX((prev) =>
-            Math.min(WORLD_SIZE - viewportWidth, prev + SCROLL_SPEED)
-          )
-          break
-        default:
-          return
+      if (
+        ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)
+      ) {
+        event.preventDefault()
+        keysPressed.current.add(event.key)
+      }
+    }
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (
+        ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)
+      ) {
+        event.preventDefault()
+        keysPressed.current.delete(event.key)
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
 
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [viewportWidth, viewportHeight])
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [])
 
   return (
     <div
