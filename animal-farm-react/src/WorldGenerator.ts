@@ -1,15 +1,19 @@
 import { Cell } from './Cell'
 import { CellType } from './CellTypes'
+import { RiverGenerator } from './RiverGenerator'
 
 export class WorldGenerator {
   private gridSize: number
+  private riverGenerator: RiverGenerator
 
   constructor(gridSize: number) {
     this.gridSize = gridSize
+    this.riverGenerator = new RiverGenerator(gridSize)
   }
 
   generateWorld(): Cell[][] {
     const grid: Cell[][] = []
+
     for (let x = 0; x < this.gridSize; x++) {
       grid[x] = []
       for (let y = 0; y < this.gridSize; y++) {
@@ -18,6 +22,7 @@ export class WorldGenerator {
     }
 
     this.generateWaterBodies(grid)
+    this.riverGenerator.generateRivers(grid)
     this.generateTrees(grid)
     this.setupNeighbors(grid)
 
@@ -28,14 +33,12 @@ export class WorldGenerator {
     const numLakes = Math.floor(this.gridSize / 20) + 2
 
     for (let i = 0; i < numLakes; i++) {
-      const centerX = Math.floor(Math.random() * this.gridSize)
-      const centerY = Math.floor(Math.random() * this.gridSize)
+      const { x: centerX, y: centerY } =
+        this.riverGenerator.findLowElevationPoint()
       const size = Math.floor(Math.random() * 8) + 3
 
       this.createWaterBody(grid, centerX, centerY, size)
     }
-
-    this.generateRivers(grid)
   }
 
   private createWaterBody(
@@ -58,39 +61,6 @@ export class WorldGenerator {
         const radius = maxRadius * (0.6 + Math.random() * 0.4) // Irregular shape
 
         if (distance < radius) {
-          grid[x][y] = new Cell(x, y, CellType.WATER)
-        }
-      }
-    }
-  }
-
-  private generateRivers(grid: Cell[][]): void {
-    const waterCells = this.findWaterCells(grid)
-    const numRivers = Math.floor(waterCells.length / 10) // Connect some water bodies
-
-    for (let i = 0; i < numRivers; i++) {
-      const start = waterCells[Math.floor(Math.random() * waterCells.length)]
-      const end = waterCells[Math.floor(Math.random() * waterCells.length)]
-
-      if (start !== end) {
-        this.createRiver(grid, start, end)
-      }
-    }
-  }
-
-  private createRiver(grid: Cell[][], start: Cell, end: Cell): void {
-    const startPos = start.getPosition()
-    const endPos = end.getPosition()
-    const steps =
-      Math.abs(startPos.x - endPos.x) + Math.abs(startPos.y - endPos.y)
-
-    for (let step = 0; step <= steps; step++) {
-      const t = step / steps
-      const x = Math.floor(startPos.x + (endPos.x - startPos.x) * t)
-      const y = Math.floor(startPos.y + (endPos.y - startPos.y) * t)
-
-      if (x >= 0 && x < this.gridSize && y >= 0 && y < this.gridSize) {
-        if (grid[x][y].getType() !== CellType.WATER) {
           grid[x][y] = new Cell(x, y, CellType.WATER)
         }
       }
@@ -149,18 +119,6 @@ export class WorldGenerator {
     }
 
     return minDistance
-  }
-
-  private findWaterCells(grid: Cell[][]): Cell[] {
-    const waterCells: Cell[] = []
-    for (let x = 0; x < this.gridSize; x++) {
-      for (let y = 0; y < this.gridSize; y++) {
-        if (grid[x][y].getType() === CellType.WATER) {
-          waterCells.push(grid[x][y])
-        }
-      }
-    }
-    return waterCells
   }
 
   private setupNeighbors(grid: Cell[][]): void {

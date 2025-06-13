@@ -1,6 +1,6 @@
 import type { Cell } from './Cell'
 import { WORLD_CONFIG } from './WorldConfig'
-import { calculateVisibleCells, generateCellColor } from './WorldUtils'
+import { calculateVisibleCells } from './WorldUtils'
 
 export class WorldRenderer {
   private canvas: HTMLCanvasElement
@@ -47,7 +47,8 @@ export class WorldRenderer {
 
     for (let x = startX; x < endX; x++) {
       for (let y = startY; y < endY; y++) {
-        this.ctx.fillStyle = generateCellColor(x, y)
+        const cell = this.world[x][y]
+        this.ctx.fillStyle = cell.getColor()
         this.ctx.fillRect(
           x * WORLD_CONFIG.CELL_SIZE - cameraX,
           y * WORLD_CONFIG.CELL_SIZE - cameraY,
