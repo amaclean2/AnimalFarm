@@ -11,7 +11,6 @@ export class RiverGenerator {
   }
 
   private generateElevationMap(): void {
-    // Create elevation map using multiple layers of noise
     this.elevationMap = []
     for (let x = 0; x < this.gridSize; x++) {
       this.elevationMap[x] = []
@@ -29,6 +28,11 @@ export class RiverGenerator {
   private simpleNoise(x: number, y: number): number {
     const value = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453
     return (value - Math.floor(value)) * 2 - 1 // Range: -1 to 1
+  }
+
+  getElevation(x: number, y: number): number {
+    if (!this.isValidPosition(x, y)) return 0
+    return this.elevationMap[x][y]
   }
 
   generateRivers(grid: Cell[][]): void {
@@ -236,7 +240,8 @@ export class RiverGenerator {
 
       if (this.isValidPosition(newX, newY) && Math.random() < 0.6) {
         if (grid[newX][newY].getType() !== CellType.WATER) {
-          grid[newX][newY] = new Cell(newX, newY, CellType.WATER)
+          const elevation = this.elevationMap[newX][newY]
+          grid[newX][newY] = new Cell(newX, newY, CellType.WATER, elevation)
         }
       }
     }
@@ -262,7 +267,13 @@ export class RiverGenerator {
         for (let j = 0; j < tributaryPath.length; j += 2) {
           const point = tributaryPath[j]
           if (this.isValidPosition(point.x, point.y)) {
-            grid[point.x][point.y] = new Cell(point.x, point.y, CellType.WATER)
+            const elevation = this.elevationMap[point.x][point.y]
+            grid[point.x][point.y] = new Cell(
+              point.x,
+              point.y,
+              CellType.WATER,
+              elevation
+            )
           }
         }
       }

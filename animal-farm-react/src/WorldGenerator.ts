@@ -74,7 +74,8 @@ export class WorldGenerator {
           const treeChance = this.calculateTreeProbability(grid, x, y)
 
           if (Math.random() < treeChance) {
-            grid[x][y] = new Cell(x, y, CellType.TREE)
+            const elevation = this.riverGenerator.getElevation(x, y)
+            grid[x][y] = new Cell(x, y, CellType.TREE, elevation)
           }
         }
       }

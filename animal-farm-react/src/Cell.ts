@@ -4,9 +4,16 @@ export class Cell {
   private position: Position
   private state: CellState
   private neighbors: Cell[] = []
+  private elevation: number = 0
 
-  constructor(x: number, y: number, type: CellType = CellType.DIRT) {
+  constructor(
+    x: number,
+    y: number,
+    type: CellType = CellType.DIRT,
+    elevation: number = 0
+  ) {
     this.position = { x, y }
+    this.elevation = elevation
     this.state = this.initializeState(type)
   }
 
@@ -45,6 +52,14 @@ export class Cell {
 
   getPosition(): Position {
     return this.position
+  }
+
+  getElevation(): number {
+    return this.elevation
+  }
+
+  setElevation(elevation: number): void {
+    this.elevation = elevation
   }
 
   getResources(): number {
@@ -180,20 +195,33 @@ export class Cell {
   }
 
   getColor(): string {
+    const normalizedElevation = (this.elevation + 1) / 2
+
     switch (this.state.type) {
       case CellType.WATER: {
         return `hsl(220 80%, ${40 + this.state.fertility * 20}%)`
       }
       case CellType.TREE: {
         const stage = this.state.growthStage || 0
-        const lightness = 25 + stage * 5 + (this.state.resources / 20) * 10
-        return `hsl(120 60%, ${lightness}%)`
+        const resourceEffect = (this.state.resources / 20) * 10
+        const elevationEffect = normalizedElevation * 15
+        const baseLightness = 25 + stage * 5 + resourceEffect + elevationEffect
+        return `hsl(120 ${60 - normalizedElevation * 10}%, ${baseLightness}%)`
       }
       case CellType.DIRT:
       case CellType.GRASS:
       default: {
         const fertility = this.state.fertility
-        return `hsl(30 ${30 + fertility * 40}%, ${20 + fertility * 20}%)`
+
+        const elevationLightness = normalizedElevation * 30
+        const fertilityEffect = fertility * 20
+        const baseLightness = 20 + fertilityEffect + elevationLightness
+
+        const elevationHue = 30 + normalizedElevation * 20
+        const saturation =
+          (30 + fertility * 40) * (1 - normalizedElevation * 0.3)
+
+        return `hsl(${elevationHue}, ${saturation}%, ${baseLightness}%)`
       }
     }
   }
