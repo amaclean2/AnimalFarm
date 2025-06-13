@@ -6,7 +6,7 @@ export const World = () => {
   const GRID_SIZE = 100
   const CELL_SIZE = 30
   const WORLD_SIZE = GRID_SIZE * CELL_SIZE
-  const SCROLL_SPEED = 20
+  const SCROLL_SPEED = 100
 
   const [cameraX, setCameraX] = useState(0)
   const [cameraY, setCameraY] = useState(0)
@@ -67,10 +67,12 @@ export const World = () => {
     const canvas = canvasRef.current
     if (canvas) canvas.focus()
 
-    drawGrid()
-
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  useEffect(() => {
+    drawGrid()
+  }, [cameraX, cameraY])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
