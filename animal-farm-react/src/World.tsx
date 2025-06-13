@@ -3,18 +3,29 @@ import { WorldRenderer } from './WorldRenderer'
 import { useViewport } from './useViewport'
 import { useCameraControls } from './useCameraControls'
 import { DebugInfo } from './DebugInfo'
+import type { Cell } from './Cell'
+import { WorldGenerator } from './WorldGenerator'
+import { WORLD_CONFIG } from './WorldConfig'
 
 export const World = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rendererRef = useRef<WorldRenderer | null>(null)
+  const worldRef = useRef<Cell[][] | null>(null)
 
   const { viewportWidth, viewportHeight } = useViewport()
   const { cameraX, cameraY } = useCameraControls(viewportWidth, viewportHeight)
 
   useEffect(() => {
     const canvas = canvasRef.current
+
     if (canvas) {
       rendererRef.current = new WorldRenderer(canvas)
+
+      const generator = new WorldGenerator(WORLD_CONFIG.GRID_SIZE)
+      const world = generator.generateWorld()
+      worldRef.current = world
+
+      rendererRef.current.setWorld(world)
       canvas.focus()
     }
   }, [])
@@ -29,6 +40,25 @@ export const World = () => {
       )
     }
   }, [cameraX, cameraY, viewportWidth, viewportHeight])
+
+  useEffect(() => {
+    if (!worldRef.current) return
+
+    const updateInterval = setInterval(() => {
+      const world = worldRef.current!
+      const deltaTime = 1000 / 60
+
+      const sampleSize = 10
+      for (let i = 0; i < sampleSize; i++) {
+        const x = Math.floor(Math.random() * WORLD_CONFIG.GRID_SIZE)
+        const y = Math.floor(Math.random() * WORLD_CONFIG.GRID_SIZE)
+
+        world[x][y].update(deltaTime)
+      }
+    }, 1000)
+
+    return () => clearInterval(updateInterval)
+  }, [])
 
   return (
     <div
