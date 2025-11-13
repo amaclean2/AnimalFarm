@@ -8,14 +8,15 @@ class Agent:
     self.energy = initial_energy
     self.age = 0
     self.alive = True
+    self.metabolism_rate = 1
     
   def tick(self):
     if not self.alive:
       return
     
     self.age += 1
-    self.energy -= 1
-    
+    self.energy -= self.metabolism_rate
+
     if self.energy <= 0:
       self.die()
       
