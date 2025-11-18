@@ -1,6 +1,8 @@
 import numpy as np
 from typing import Tuple, Optional
-from .world import World
+from world import World
+
+RESOURCE_CALORIES = 20
 
 class ResourceManager:
   def __init__(self, world: World, initial_food_count: int = 500, regen_rate: float = 0.01):
@@ -44,10 +46,11 @@ class ResourceManager:
           
   def get_food_in_radius(self, position: Tuple[int, int], radius: int) -> list[Tuple[int, int]]:
     nearby_food = []
+    
     for fx, fy in self.food_positions:
       dist_sq = (fx - position[0]) ** 2 + (fy - position[1]) ** 2
       
       if dist_sq <= radius ** 2:
         nearby_food.append((fx, fy))
-        
+
     return nearby_food
