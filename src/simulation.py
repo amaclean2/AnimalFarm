@@ -59,13 +59,8 @@ class Simulation:
         self.metrics['ages_at_death'].append(agent.age)
         continue
       
-      # Agent moves towards food or randomly
+      # Agent moves towards food or randomly (and eats if already on food)
       agent.move_to_closest_food(self.resource_manager)
-      
-      # Agent eats if on food
-      if self.resource_manager.has_food(agent.position):
-        agent.eat()
-        self.resource_manager.remove_food(agent.position)
       
       # Agent reproduces if able
       if agent.can_reproduce():

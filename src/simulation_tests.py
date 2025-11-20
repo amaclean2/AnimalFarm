@@ -106,7 +106,7 @@ class TestSimulationLifecycle(unittest.TestCase):
   def test_agent_death_in_simulation(self):
     """Test that agents die when energy is depleted"""
     world = World(width=50, height=50)
-    resource_manager = ResourceManager(world, initial_food_count=0)  # No food
+    resource_manager = ResourceManager(world, initial_food_count=0)  # No food available to test starvation
     sim = Simulation(world, resource_manager, initial_population=5)
     
     initial_population = sim.get_population_count()
@@ -124,7 +124,7 @@ class TestSimulationLifecycle(unittest.TestCase):
   def test_agent_reproduction_in_simulation(self):
     """Test that agents reproduce when conditions are met"""
     world = World(width=50, height=50)
-    resource_manager = ResourceManager(world, initial_food_count=500)  # Abundant food
+    resource_manager = ResourceManager(world, initial_food_count=500)  # Abundant food to enable reproduction
     sim = Simulation(world, resource_manager, initial_population=5)
     
     # Create mature agents with high energy
