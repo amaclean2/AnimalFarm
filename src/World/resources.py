@@ -1,6 +1,11 @@
 import numpy as np
 from typing import Tuple, Optional
-from world import World
+
+# Support both relative and absolute imports
+try:
+  from .world import World
+except ImportError:
+  from world import World
 
 RESOURCE_CALORIES = 20
 
