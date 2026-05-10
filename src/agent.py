@@ -19,5 +19,6 @@ class Agent(BaseModel):
     last_food_seen: tuple[int, int] | None = None
     carrying_food: bool = False
     birth_tick: int = 0
-    mutation: str | None = None
+    mutations: list[str] = Field(default_factory=list)
+    genotype: dict[str, int] = Field(default_factory=dict)
     metabolism: float = 1.0

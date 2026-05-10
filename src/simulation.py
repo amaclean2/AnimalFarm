@@ -2,7 +2,8 @@ from collections import defaultdict
 from uuid import UUID
 
 from agent import MAX_HEALTH
-from ecology import FOOD_REGROW_TICKS, form_groups, reproduce
+from ecology import FOOD_REGROW_TICKS, form_groups
+from reproduction import reproduce
 from food import Food
 from metrics import SimulationMetrics
 from movement import LONE_HEALTH_PENALTY, STOCKPILE_HUNGER_THRESHOLD, effective_vision, lone_social_target, score_move
@@ -10,7 +11,8 @@ from world import World, world
 
 MAX_AGE = 200
 INFANT_DRAIN = 5
-MATURITY_AGE = 40
+MATURITY_AGE = 30
+WATER_DRAIN_MULTIPLIER = 2
 
 
 def starvation_drain(age: int) -> int:
@@ -148,7 +150,9 @@ class Simulation:
                         "food_id": str(food.id),
                     }))
             else:
-                agent.health -= round(starvation_drain(agent.age) * agent.metabolism) + (LONE_HEALTH_PENALTY if agent.group_id is None else 0)
+                base_drain = round(starvation_drain(agent.age) * agent.metabolism)
+                water_drain = base_drain * (WATER_DRAIN_MULTIPLIER - 1) if self.world.is_river_tile(agent.x, agent.y) else 0
+                agent.health -= base_drain + water_drain + (LONE_HEALTH_PENALTY if agent.group_id is None else 0)
 
             if agent.carrying_food and group and group.home:
                 if (agent.x, agent.y) == group.home:

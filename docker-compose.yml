@@ -4,8 +4,5 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - game_logs:/app/logs
+      - ./logs:/app/logs
     restart: unless-stopped
-
-volumes:
-  game_logs:

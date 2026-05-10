@@ -1,13 +1,10 @@
 import random
-from uuid import UUID
 
-from agent import MAX_HEALTH
 from food import Food
 from group import BASE_COHESION
-from mutations import apply_mutation
 from world import World
 
-FOOD_REGROW_TICKS = 25
+FOOD_REGROW_TICKS = 40
 
 FOOD_SPREAD_SIGMA = 20.0
 FOOD_SPREAD_CANDIDATES = 50
@@ -18,10 +15,6 @@ FOOD_SCORE_FLOOR = 0.01
 RIVER_DOWN_WEIGHT = 3.0
 RIVER_LATERAL_WEIGHT = 2.0
 RIVER_UP_WEIGHT = 0.5
-
-REPRODUCTION_CHANCE = 0.05
-REPRODUCTION_HEALTH_THRESHOLD = 0.87
-REPRODUCTION_RANGE = 3
 
 
 def form_groups(world: World, events: list[tuple[str, dict]]) -> None:
@@ -67,43 +60,6 @@ def form_groups(world: World, events: list[tuple[str, dict]]) -> None:
                     "home": list(group.home) if group.home else None,
                 }))
                 break
-
-
-def reproduce(world: World, events: list[tuple[str, dict]], tick_count: int) -> int:
-    """Attempt reproduction for eligible pairs. Returns count of eligible pairs found."""
-    agents = world.all_living_agents()
-    paired: set[UUID] = set()
-    eligible_pairs = 0
-
-    reproduction_min_health = int(MAX_HEALTH * REPRODUCTION_HEALTH_THRESHOLD)
-    for i, agent in enumerate(agents):
-        if agent.id in paired or agent.health < reproduction_min_health:
-            continue
-        for other in agents[i + 1:]:
-            if other.id in paired or other.health < reproduction_min_health:
-                continue
-            if abs(agent.x - other.x) + abs(agent.y - other.y) > REPRODUCTION_RANGE:
-                continue
-            eligible_pairs += 1
-            if random.random() >= REPRODUCTION_CHANCE:
-                continue
-
-            spawn_candidates = [
-                pos for pos in world.valid_moves(agent.x, agent.y)
-                if not world.is_river_tile(*pos)
-            ]
-            if not spawn_candidates:
-                continue
-
-            sx, sy = random.choice(spawn_candidates)
-            newborn = world.add_agent(sx, sy, birth_tick=tick_count)
-            apply_mutation(newborn)
-            events.append(("agent_born", {"agent": newborn.model_dump(mode="json")}))
-            paired.add(agent.id)
-            paired.add(other.id)
-            break
-
-    return eligible_pairs
 
 
 def spawn_food_near(

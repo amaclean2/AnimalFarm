@@ -1,0 +1,6 @@
+services:
+  server:
+    volumes:
+      - ./src:/app/src
+      - ./static:/app/static
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --app-dir src --reload

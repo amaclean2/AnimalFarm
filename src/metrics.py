@@ -34,6 +34,11 @@ class SimulationMetrics:
         self._mutation_births: dict[str, int] = {}
         self._mutation_deaths: dict[str, int] = {}
         self._mutation_age_sum: dict[str, int] = {}
+        self._mutation_pop_window: dict[str, int] = {}
+        self._mutation_pop_history: dict[str, list[float]] = {}
+        self._population_window: int = 0
+        self._population_history: list[float] = []
+        self._window_count: int = 0
 
     def reset(self) -> None:
         self._ticks = 0
@@ -57,12 +62,18 @@ class SimulationMetrics:
         self._mutation_births = {}
         self._mutation_deaths = {}
         self._mutation_age_sum = {}
+        self._mutation_pop_window = {}
+        self._mutation_pop_history = {}
+        self._population_window = 0
+        self._population_history = []
+        self._window_count = 0
         self._window_births = 0
         self._birth_history = []
 
     def record_tick(self, living: list, group_count: int, food_count: int, eligible_pairs: int = 0) -> None:
         self._ticks += 1
         n = len(living)
+        
         self._peak_population = max(self._peak_population, n)
         self._peak_group_count = max(self._peak_group_count, group_count)
         self._agent_ticks_alive += n
@@ -70,32 +81,57 @@ class SimulationMetrics:
         self._total_health_sum += sum(a.health for a in living)
         self._agent_ticks_full_health += sum(1 for a in living if a.health == MAX_HEALTH)
         self._total_food_sum += food_count
+        
         self._min_food_per_tick = (
             food_count if self._min_food_per_tick is None
             else min(self._min_food_per_tick, food_count)
         )
+        
         self._reproduction_eligible_pairs += eligible_pairs
+        
+        for agent in living:
+            for m in agent.mutations:
+                self._mutation_pop_window[m] = self._mutation_pop_window.get(m, 0) + 1
+        
+        self._population_window += n
+        
         if self._ticks % BIRTH_RATE_WINDOW == 0:
             self._birth_history.append(self._window_births)
             self._window_births = 0
+            
+            all_tracked = set(self._mutation_births) | set(self._mutation_pop_window) | set(self._mutation_pop_history)
+            
+            for m in all_tracked:
+                history = self._mutation_pop_history.setdefault(m, [])
+                while len(history) < self._window_count:
+                    history.append(0.0)
+                history.append(round(self._mutation_pop_window.get(m, 0) / BIRTH_RATE_WINDOW, 1))
+            
+            self._mutation_pop_window = {}
+            self._population_history.append(round(self._population_window / BIRTH_RATE_WINDOW, 1))
+            self._population_window = 0
+            self._window_count += 1
 
     def record_event(self, event_type: str, data: dict) -> None:
         if event_type == "agent_born":
             self._births += 1
             self._window_births += 1
-            m = data["agent"].get("mutation")
-            if m:
+            
+            for m in data["agent"].get("mutations", []):
                 self._mutation_births[m] = self._mutation_births.get(m, 0) + 1
+        
         elif event_type == "agent_died":
             if data["agent"]["age"] >= self._max_age:
                 self._age_deaths += 1
             else:
                 self._starvation_deaths += 1
-            m = data["agent"].get("mutation")
-            if m:
-                age = data["agent"]["age"]
+                
+            age = data["agent"]["age"]
+            
+            for m in data["agent"].get("mutations", []):
                 self._mutation_deaths[m] = self._mutation_deaths.get(m, 0) + 1
                 self._mutation_age_sum[m] = self._mutation_age_sum.get(m, 0) + age
+        
         elif event_type == "agent_ate":
             self._food_eaten += 1
         elif event_type == "food_deposited":
@@ -129,6 +165,7 @@ class SimulationMetrics:
                 "total_births": self._births,
                 "starvation_deaths": self._starvation_deaths,
                 "age_deaths": self._age_deaths,
+                "history": self._population_history,
             },
             "health": {
                 "avg_health_per_agent": avg_health,
@@ -159,13 +196,37 @@ class SimulationMetrics:
         }
 
         mutation_stats: dict[str, dict] = {}
-        for name in set(self._mutation_births) | set(self._mutation_deaths):
+        all_mutations = (
+            set(self._mutation_births)
+            | set(self._mutation_deaths)
+            | set(self._mutation_pop_history)
+        )
+        n_windows = len(self._population_history)
+
+        for name in all_mutations:
+            births = self._mutation_births.get(name, 0)
             deaths = self._mutation_deaths.get(name, 0)
+            pop_history = self._mutation_pop_history.get(name, [])
+
+            pad = n_windows - len(pop_history)
+            padded = [0.0] * pad + pop_history
+            diversity_history = [
+                round(p / t, 3) if t > 0 else 0.0
+                for p, t in zip(padded, self._population_history)
+            ]
+
             mutation_stats[name] = {
-                "births": self._mutation_births.get(name, 0),
+                "births": births,
                 "deaths": deaths,
-                "avg_age_at_death": round(self._mutation_age_sum.get(name, 0) / deaths, 1) if deaths > 0 else None,
+                "alive": max(0, births - deaths),
+                "avg_age_at_death": (
+                    round(self._mutation_age_sum.get(name, 0) / deaths, 1)
+                    if deaths > 0 else None
+                ),
+                "population_history": pop_history,
+                "diversity_history": diversity_history,
             }
+
         if mutation_stats:
             data["mutations"] = mutation_stats
 

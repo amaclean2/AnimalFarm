@@ -1,10 +1,11 @@
 import asyncio
+import os
 from collections.abc import Awaitable, Callable
 from typing import Literal
 
 TickCallback = Callable[[int], Awaitable[None]]
 
-TICK_INTERVAL = 0.5
+TICK_INTERVAL = float(os.getenv("TICK_INTERVAL", "0.2"))
 
 
 class GameClock:

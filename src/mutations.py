@@ -2,7 +2,7 @@ import random
 
 from agent import Agent, VISION_RANGE
 
-MUTATION_RATE = 0.2
+SPONTANEOUS_MUTATION_RATE = 0.15
 VISION_BOOST = 8
 VISION_PENALTY = 6
 
@@ -16,10 +16,43 @@ _MUTATIONS: dict[str, dict] = {
 MUTATION_NAMES = list(_MUTATIONS.keys())
 
 
-def apply_mutation(agent: Agent) -> None:
-    if random.random() >= MUTATION_RATE:
-        return
-    name = random.choice(MUTATION_NAMES)
-    agent.mutation = name
-    for attr, value in _MUTATIONS[name].items():
-        setattr(agent, attr, value)
+def _alleles_passed(count: int) -> int:
+    """Alleles a parent with `count` recessive copies contributes to a child."""
+    if count == 0:
+        return 0
+    if count == 2:
+        return 1
+    # Heterozygous carrier (Aa): 50% chance of passing the recessive allele
+    return 1 if random.random() < 0.5 else 0
+
+
+def apply_expressed_mutations(agent: Agent) -> None:
+    """Reset phenotype to defaults, then express all homozygous-recessive (aa) loci."""
+    agent.vision_range = VISION_RANGE
+    agent.metabolism = 1.0
+    agent.mutations = [
+        locus for locus, count in sorted(agent.genotype.items())
+        if count == 2 and locus in _MUTATIONS
+    ]
+    for locus in agent.mutations:
+        for attr, value in _MUTATIONS[locus].items():
+            setattr(agent, attr, value)
+
+
+def inherit_or_mutate(agent: Agent, parent_a: Agent, parent_b: Agent) -> None:
+    """Build child genotype via Mendelian inheritance, then optionally add a spontaneous allele."""
+    genotype: dict[str, int] = {}
+    for locus in set(parent_a.genotype) | set(parent_b.genotype):
+        child_alleles = (
+            _alleles_passed(parent_a.genotype.get(locus, 0))
+            + _alleles_passed(parent_b.genotype.get(locus, 0))
+        )
+        if child_alleles > 0:
+            genotype[locus] = child_alleles
+
+    if random.random() < SPONTANEOUS_MUTATION_RATE:
+        locus = random.choice(MUTATION_NAMES)
+        genotype[locus] = min(2, genotype.get(locus, 0) + 1)
+
+    agent.genotype = genotype
+    apply_expressed_mutations(agent)
