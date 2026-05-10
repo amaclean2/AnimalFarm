@@ -1,0 +1,102 @@
+import random
+
+from agent import MAX_HEALTH, Agent
+from food import Food
+from group import Group, VISION_BONUS
+from world import World
+
+FOOD_BASE_WEIGHT = 4.0
+FOOD_HUNGER_BONUS = 4.0
+FOOD_MEMORY_WEIGHT = 1.5
+SOCIAL_COHESION_WEIGHT = 2.0
+SOCIAL_FRINGE_WEIGHT = 4.0
+SOCIAL_LONE_WEIGHT = 1.5
+WANDER_WEIGHT = 0.15
+MOMENTUM_WEIGHT = 0.3
+HOME_PULL_WEIGHT = 1.0
+FORAGING_RETURN_WEIGHT = 4.5
+STOCKPILE_SEEK_WEIGHT = 2.0
+STOCKPILE_HUNGER_THRESHOLD = 0.60
+LONE_HEALTH_PENALTY = 1
+
+
+def effective_vision(world: World, agent: Agent) -> float:
+    group = world.group_for_agent(agent.id)
+    if group:
+        dist = abs(agent.x - group.center_x) + abs(agent.y - group.center_y)
+        if dist <= group.cohesion_radius:
+            return agent.vision_range * VISION_BONUS
+    return float(agent.vision_range)
+
+
+def score_move(
+    agent: Agent,
+    pos: tuple[int, int],
+    food_targets: list[Food],
+    group: Group | None,
+    social_target: tuple[float, float, float] | None,
+) -> float:
+    score = WANDER_WEIGHT * random.random()
+
+    if food_targets:
+        nearest_dist = min(abs(f.x - pos[0]) + abs(f.y - pos[1]) for f in food_targets)
+        hunger = (MAX_HEALTH - agent.health) / MAX_HEALTH
+        score += (FOOD_BASE_WEIGHT + FOOD_HUNGER_BONUS * hunger) / (1 + nearest_dist)
+
+    if group:
+        dist = abs(pos[0] - group.center_x) + abs(pos[1] - group.center_y)
+        weight = SOCIAL_FRINGE_WEIGHT if dist > group.cohesion_radius else SOCIAL_COHESION_WEIGHT
+        score += weight / (1 + dist)
+    elif social_target:
+        tx, ty, gravity = social_target
+        dist = abs(pos[0] - tx) + abs(pos[1] - ty)
+        score += SOCIAL_LONE_WEIGHT * gravity / (1 + dist)
+
+    if agent.direction:
+        dx, dy = pos[0] - agent.x, pos[1] - agent.y
+        dot = agent.direction[0] * dx + agent.direction[1] * dy
+        lost = not food_targets and not agent.carrying_food and not agent.last_food_seen
+        satiation = 1.0 if lost else (agent.health / MAX_HEALTH) ** 2
+        score += MOMENTUM_WEIGHT * max(0.0, dot) * satiation
+
+    if group and group.home:
+        hx, hy = group.home
+        home_dist = abs(pos[0] - hx) + abs(pos[1] - hy)
+        if agent.carrying_food:
+            score += FORAGING_RETURN_WEIGHT / (1 + home_dist)
+        elif agent.health < MAX_HEALTH * STOCKPILE_HUNGER_THRESHOLD and group.stockpile > 0:
+            score += STOCKPILE_SEEK_WEIGHT / (1 + home_dist)
+        else:
+            score += HOME_PULL_WEIGHT / (1 + home_dist)
+
+    if not food_targets and not agent.carrying_food and agent.last_food_seen:
+        mx, my = agent.last_food_seen
+        dist = abs(pos[0] - mx) + abs(pos[1] - my)
+        score += FOOD_MEMORY_WEIGHT / (1 + dist)
+
+    return score
+
+
+def lone_social_target(
+    world: World, agent: Agent, vision: float
+) -> tuple[float, float, float] | None:
+    best: tuple[float, float, float] | None = None
+    best_score = 0.0
+
+    for group in world.all_groups():
+        dist = abs(agent.x - group.center_x) + abs(agent.y - group.center_y)
+        if dist <= vision:
+            score = group.gravity / (1 + dist)
+            if score > best_score:
+                best_score = score
+                best = (group.center_x, group.center_y, group.gravity)
+
+    for other in world.agents_in_range(agent, vision):
+        if other.group_id is None:
+            dist = abs(agent.x - other.x) + abs(agent.y - other.y)
+            score = 1.0 / (1 + dist)
+            if score > best_score:
+                best_score = score
+                best = (float(other.x), float(other.y), 1.0)
+
+    return best

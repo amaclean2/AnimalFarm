@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Animal Farm</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/main.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="panel">
+    <h2>ANIMAL FARM</h2>
+    <div class="stat">Tick: <span id="tick">—</span></div>
+    <div class="stat">Agents: <span id="agent-count">0</span></div>
+    <div class="stat">Food: <span id="food-count">0</span></div>
+    <div class="stat">Groups: <span id="group-count">0</span></div>
+    <div class="controls">
+      <button id="btn-start">▶ Start Game</button>
+      <button id="btn-pause" disabled>⏸ Pause</button>
+      <button id="btn-stop"  disabled>⏹ Stop Clock</button>
+      <button id="btn-stats">📊 Stats</button>
+    </div>
+    <div id="status">Connecting…</div>
+  </div>
+
+  <div id="modal-overlay">
+    <div id="modal">
+      <div id="modal-header">
+        <h3>GAME STATS</h3>
+        <button id="modal-close">✕</button>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <div id="agent-panel" class="hidden">
+    <div id="agent-panel-title">Selected Agent</div>
+    <div id="agent-panel-body"></div>
+  </div>
+
+  <div id="hint">WASD / ↑↓←→ to scroll</div>
+
+  <script src="/scripts/main.js"></script>
+</body>
+</html>
