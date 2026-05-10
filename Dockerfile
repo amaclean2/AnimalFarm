@@ -2,9 +2,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir fastapi "uvicorn[standard]"
+RUN pip install --no-cache-dir fastapi "uvicorn[standard]" aiofiles
 
 COPY src/ ./src/
+COPY static/ ./static/
 
 RUN mkdir -p /app/logs
 

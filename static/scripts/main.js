@@ -4,8 +4,8 @@ const WORLD_H      = 100;
 const MAX_HEALTH   = 80;
 const SCROLL_SPEED = 600; // px / sec
 
-const API    = 'http://localhost:8000';
-const WS_URL = 'ws://localhost:8000/ws';
+const API    = '';
+const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
 
 // ── Canvas ───────────────────────────────────────────────────────────────────
 
