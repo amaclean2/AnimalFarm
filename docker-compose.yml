@@ -13,7 +13,8 @@ services:
       args:
         # Set DROPLET_IP in .env or export it before running docker-compose build.
         # Example: DROPLET_IP=123.45.67.89
-        API_HOST: ${DROPLET_IP:-localhost}:8000
+        API_URL: http://${DROPLET_IP:-localhost}:8000
+        WS_URL: ws://${DROPLET_IP:-localhost}:8000/ws
     ports:
       - "80:80"
     restart: unless-stopped
