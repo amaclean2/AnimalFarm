@@ -1,0 +1,22 @@
+services:
+  server:
+    build: ./server
+    ports:
+      - "8000:8000"
+    volumes:
+      - game_logs:/app/logs
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+      args:
+        # Set DROPLET_IP in .env or export it before running docker-compose build.
+        # Example: DROPLET_IP=123.45.67.89
+        API_HOST: ${DROPLET_IP:-localhost}:8000
+    ports:
+      - "80:80"
+    restart: unless-stopped
+
+volumes:
+  game_logs:
