@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Animal Farm</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
@@ -12,10 +13,12 @@
 
   <div id="panel">
     <h2>ANIMAL FARM</h2>
-    <div class="stat">Tick: <span id="tick">—</span></div>
-    <div class="stat">Agents: <span id="agent-count">0</span></div>
-    <div class="stat">Food: <span id="food-count">0</span></div>
-    <div class="stat">Groups: <span id="group-count">0</span></div>
+    <div id="stats-grid">
+      <div class="stat">Tick: <span id="tick">—</span></div>
+      <div class="stat">Agents: <span id="agent-count">0</span></div>
+      <div class="stat">Food: <span id="food-count">0</span></div>
+      <div class="stat">Groups: <span id="group-count">0</span></div>
+    </div>
     <div class="controls">
       <button id="btn-start">▶ Start Game</button>
       <button id="btn-pause" disabled>⏸ Pause</button>
@@ -40,7 +43,7 @@
     <div id="agent-panel-body"></div>
   </div>
 
-  <div id="hint">WASD / ↑↓←→ to scroll</div>
+  <div id="hint"></div>
 
   <script src="/scripts/main.js"></script>
 </body>

@@ -12,6 +12,7 @@ body {
 
 canvas {
   display: block;
+  touch-action: none;
 }
 
 #panel {
@@ -140,9 +141,9 @@ button:disabled {
   background: #1a1a1a;
   border: 1px solid #333;
   border-radius: 8px;
-  width: 560px;
+  width: 480px;
   max-width: 90vw;
-  max-height: 80vh;
+  max-height: 65vh;
   display: flex;
   flex-direction: column;
 }
@@ -257,4 +258,54 @@ button:disabled {
   height: 100%;
   background: #2ecc71;
   border-radius: 3px;
+}
+
+/* ── Mobile ──────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  #panel {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    min-width: 0;
+    padding: 10px 12px;
+  }
+
+  #stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px 16px;
+  }
+
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin-top: 10px;
+  }
+
+  .controls button {
+    min-height: 36px;
+    text-align: center;
+    padding: 6px 4px;
+  }
+
+  #agent-panel {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: 6px 6px 0 0;
+    min-width: 0;
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+
+  #hint {
+    display: none;
+  }
+
+  .stats-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
