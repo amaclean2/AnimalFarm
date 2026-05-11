@@ -5,7 +5,7 @@ from typing import Literal
 
 TickCallback = Callable[[int], Awaitable[None]]
 
-TICK_INTERVAL = float(os.getenv("TICK_INTERVAL", "0.2"))
+TICK_INTERVAL = float(os.getenv("TICK_INTERVAL", "0.3"))
 
 
 class GameClock:

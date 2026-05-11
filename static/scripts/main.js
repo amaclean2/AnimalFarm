@@ -3,12 +3,12 @@ const WORLD_H = 100
 const CELL_DESKTOP = 30
 const CELL_MOBILE = 15
 const MAX_HEALTH = 80
-const SCROLL_SPEED = 600 // px / sec
+const SCROLL_SPEED = 600
+
+let tickMs = 0
 
 const API = ''
 const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
-
-// ── Canvas ───────────────────────────────────────────────────────────────────
 
 const canvas = document.getElementById('game')
 const ctx = canvas.getContext('2d')
@@ -30,8 +30,6 @@ function resize() {
 window.addEventListener('resize', resize)
 requestAnimationFrame(resize)
 
-// ── Camera ───────────────────────────────────────────────────────────────────
-
 let camX = 0
 let camY = 0
 
@@ -43,8 +41,6 @@ function clampCamera() {
   )
 }
 
-// ── Input ────────────────────────────────────────────────────────────────────
-
 const keys = new Set()
 
 window.addEventListener('keydown', (e) => {
@@ -54,8 +50,6 @@ window.addEventListener('keydown', (e) => {
   keys.add(e.key)
 })
 window.addEventListener('keyup', (e) => keys.delete(e.key))
-
-// ── Touch pan ─────────────────────────────────────────────────────────────────
 
 let touchLastX = 0
 let touchLastY = 0
@@ -118,19 +112,32 @@ canvas.addEventListener('click', (e) => {
   updateAgentPanel(selectedAgentId ? agents.get(selectedAgentId) : null)
 })
 
-// ── State ────────────────────────────────────────────────────────────────────
-
 const agents = new Map()
 const deadAgents = new Map()
 const food = new Map()
-const rivers = new Map() // river_id -> { id, tiles: [[x,y],...], complete }
-const groups = new Map() // group_id -> { id, home: [x,y]|null, stockpile: int }
+const rivers = new Map()
+const groups = new Map()
 
 let clockState = 'stopped'
 let tickCount = 0
 let selectedAgentId = null
 
-function upsertAgent(a) {
+function upsertAgent(a, { mustStop = false } = {}) {
+  const prev = agents.get(a.id)
+  if (!prev) {
+    a.displayX = a.x
+    a.displayY = a.y
+    a.posQueue = []
+    a.arc = null
+  } else {
+    a.displayX = prev.displayX ?? prev.x
+    a.displayY = prev.displayY ?? prev.y
+    a.posQueue = prev.posQueue ?? []
+    a.arc = prev.arc ?? null
+    if (prev.x !== a.x || prev.y !== a.y) {
+      a.posQueue.push({ x: a.x, y: a.y, mustStop })
+    }
+  }
   agents.set(a.id, a)
   if (a.id === selectedAgentId) updateAgentPanel(a)
 }
@@ -154,8 +161,6 @@ function addRiverTile(riverId, x, y) {
   }
   river.tiles.push([x, y])
 }
-
-// ── DOM ───────────────────────────────────────────────────────────────────────
 
 const tickEl = document.getElementById('tick')
 const agentCountEl = document.getElementById('agent-count')
@@ -220,8 +225,6 @@ function setClockState(state) {
     { stopped: 'Stopped', running: 'Running', paused: 'Paused' }[state] ?? state
 }
 
-// ── WebSocket ─────────────────────────────────────────────────────────────────
-
 function connect() {
   const ws = new WebSocket(WS_URL)
 
@@ -251,11 +254,13 @@ function connect() {
       case 'agent_created':
       case 'agent_born':
       case 'agent_picked_up_food':
+        upsertAgent(msg.agent, { mustStop: true })
+        break
       case 'agent_moved':
         upsertAgent(msg.agent)
         break
       case 'agent_ate':
-        upsertAgent(msg.agent)
+        upsertAgent(msg.agent, { mustStop: true })
         food.delete(msg.food_id)
         break
       case 'agent_died':
@@ -307,8 +312,6 @@ function connect() {
   }
 }
 
-// ── REST ──────────────────────────────────────────────────────────────────────
-
 async function fetchState() {
   const [worldRes, clockRes] = await Promise.all([
     fetch(`${API}/world`),
@@ -331,6 +334,7 @@ async function fetchState() {
 
   tickCount = clockData.tick_count
   tickEl.textContent = tickCount || '—'
+  tickMs = clockData.interval * 1000
   setClockState(clockData.state)
   syncCounters()
 }
@@ -342,8 +346,6 @@ async function post(path) {
     console.error('POST', path, e)
   }
 }
-
-// ── Controls ──────────────────────────────────────────────────────────────────
 
 btnStart.addEventListener('click', () => post('/start'))
 
@@ -361,8 +363,6 @@ btnStop.addEventListener('click', () => {
   post('/clock/stop')
   setClockState('stopped')
 })
-
-// ── Stats modal ───────────────────────────────────────────────────────────────
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -454,8 +454,6 @@ document.getElementById('modal-close').addEventListener('click', closeStats)
 modalOverlay.addEventListener('click', (e) => {
   if (e.target === modalOverlay) closeStats()
 })
-
-// ── Rendering ─────────────────────────────────────────────────────────────────
 
 const PALETTE = [
   '#e74c3c',
@@ -550,7 +548,6 @@ function drawStockpiles() {
   }
 }
 
-// visionFoods is a Set of food IDs visible to the selected agent (may be empty)
 function drawVision(a, r) {
   const cx = a.x * CELL + CELL / 2 - camX
   const cy = a.y * CELL + CELL / 2 - camY
@@ -591,6 +588,53 @@ function drawFood(visionFoods) {
   }
 }
 
+function ensureArc(a, now) {
+  if (a.arc && (now - a.arc.startTime) / a.arc.duration >= 1) {
+    a.displayX = a.arc.p2x
+    a.displayY = a.arc.p2y
+    a.arc = null
+  }
+  if (!a.arc) {
+    if (a.posQueue.length >= 2 && !a.posQueue[0].mustStop) {
+      const p1 = a.posQueue.shift()
+      const p2 = a.posQueue.shift()
+      a.arc = {
+        p0x: a.displayX, p0y: a.displayY,
+        p1x: p1.x,       p1y: p1.y,
+        p2x: p2.x,       p2y: p2.y,
+        startTime: now,
+        duration: tickMs > 0 ? 2 * tickMs : 300,
+        curved: true,
+      }
+    } else if (a.posQueue.length >= 1) {
+      const p2 = a.posQueue.shift()
+      a.arc = {
+        p0x: a.displayX, p0y: a.displayY,
+        p2x: p2.x,       p2y: p2.y,
+        startTime: now,
+        duration: tickMs > 0 ? tickMs : 150,
+        curved: false,
+      }
+    }
+  }
+}
+
+function agentRenderPos(a, now) {
+  if (!a.arc) return [a.displayX, a.displayY]
+  const t = Math.min((now - a.arc.startTime) / a.arc.duration, 1)
+  if (a.arc.curved) {
+    const u = 1 - t
+    return [
+      u*u*a.arc.p0x + 2*u*t*a.arc.p1x + t*t*a.arc.p2x,
+      u*u*a.arc.p0y + 2*u*t*a.arc.p1y + t*t*a.arc.p2y,
+    ]
+  }
+  return [
+    a.arc.p0x + (a.arc.p2x - a.arc.p0x) * t,
+    a.arc.p0y + (a.arc.p2y - a.arc.p0y) * t,
+  ]
+}
+
 function drawAgents() {
   for (const a of deadAgents.values()) {
     if (!a) continue
@@ -607,9 +651,12 @@ function drawAgents() {
     ctx.stroke()
   }
 
+  const now = performance.now()
   for (const a of agents.values()) {
-    const sx = a.x * CELL - camX
-    const sy = a.y * CELL - camY
+    ensureArc(a, now)
+    const [rx, ry] = agentRenderPos(a, now)
+    const sx = rx * CELL - camX
+    const sy = ry * CELL - camY
     if (!isVisible(sx, sy)) continue
 
     const cx = sx + CELL / 2
@@ -662,8 +709,6 @@ function drawPrompt() {
   }
 }
 
-// ── Game loop ─────────────────────────────────────────────────────────────────
-
 let lastTime = 0
 
 function frame(now) {
@@ -707,8 +752,6 @@ function frame(now) {
 
   requestAnimationFrame(frame)
 }
-
-// ── Boot ──────────────────────────────────────────────────────────────────────
 
 document.getElementById('hint').textContent = window.matchMedia(
   '(pointer: coarse)'

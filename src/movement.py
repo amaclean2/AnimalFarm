@@ -18,6 +18,7 @@ FORAGING_RETURN_WEIGHT = 4.5
 STOCKPILE_SEEK_WEIGHT = 2.0
 STOCKPILE_HUNGER_THRESHOLD = 0.60
 LONE_HEALTH_PENALTY = 1
+LOOKAHEAD_DISCOUNT = 0.5
 
 
 def effective_vision(world: World, agent: Agent) -> float:
@@ -35,7 +36,9 @@ def score_move(
     food_targets: list[Food],
     group: Group | None,
     social_target: tuple[float, float, float] | None,
+    from_pos: tuple[int, int] | None = None,
 ) -> float:
+    origin = from_pos if from_pos is not None else (agent.x, agent.y)
     score = WANDER_WEIGHT * random.random()
 
     if food_targets:
@@ -46,6 +49,9 @@ def score_move(
     if group:
         dist = abs(pos[0] - group.center_x) + abs(pos[1] - group.center_y)
         weight = SOCIAL_FRINGE_WEIGHT if dist > group.cohesion_radius else SOCIAL_COHESION_WEIGHT
+        if not food_targets:
+            hunger = (MAX_HEALTH - agent.health) / MAX_HEALTH
+            weight *= max(0.0, 1.0 - hunger)
         score += weight / (1 + dist)
     elif social_target:
         tx, ty, gravity = social_target
@@ -53,7 +59,7 @@ def score_move(
         score += SOCIAL_LONE_WEIGHT * gravity / (1 + dist)
 
     if agent.direction:
-        dx, dy = pos[0] - agent.x, pos[1] - agent.y
+        dx, dy = pos[0] - origin[0], pos[1] - origin[1]
         dot = agent.direction[0] * dx + agent.direction[1] * dy
         lost = not food_targets and not agent.carrying_food and not agent.last_food_seen
         satiation = 1.0 if lost else (agent.health / MAX_HEALTH) ** 2
@@ -66,7 +72,7 @@ def score_move(
             score += FORAGING_RETURN_WEIGHT / (1 + home_dist)
         elif agent.health < MAX_HEALTH * STOCKPILE_HUNGER_THRESHOLD and group.stockpile > 0:
             score += STOCKPILE_SEEK_WEIGHT / (1 + home_dist)
-        else:
+        elif agent.health >= MAX_HEALTH * STOCKPILE_HUNGER_THRESHOLD or group.stockpile > 0:
             score += HOME_PULL_WEIGHT / (1 + home_dist)
 
     if not food_targets and not agent.carrying_food and agent.last_food_seen:
@@ -75,6 +81,30 @@ def score_move(
         score += FOOD_MEMORY_WEIGHT / (1 + dist)
 
     return score
+
+
+def best_move(
+    world: World,
+    agent: Agent,
+    candidates: list[tuple[int, int]],
+    food_targets: list[Food],
+    group: Group | None,
+    social_target: tuple[float, float, float] | None,
+) -> tuple[int, int]:
+    best_pos = candidates[0]
+    best_score = float("-inf")
+    for p1 in candidates:
+        s1 = score_move(agent, p1, food_targets, group, social_target)
+        p2_candidates = world.valid_moves(p1[0], p1[1])
+        s2 = max(
+            score_move(agent, p2, food_targets, group, social_target, from_pos=p1)
+            for p2 in p2_candidates
+        )
+        combined = s1 + LOOKAHEAD_DISCOUNT * s2
+        if combined > best_score:
+            best_score = combined
+            best_pos = p1
+    return best_pos
 
 
 def lone_social_target(
