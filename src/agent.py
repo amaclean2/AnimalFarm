@@ -17,7 +17,6 @@ class Agent(BaseModel):
     alive: bool = True
     direction: tuple[int, int] | None = None
     last_food_seen: tuple[int, int] | None = None
-    carrying_food: bool = False
     birth_tick: int = 0
     mutations: list[str] = Field(default_factory=list)
     genotype: dict[str, int] = Field(default_factory=dict)

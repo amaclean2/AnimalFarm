@@ -53,11 +53,9 @@ def form_groups(world: World, events: list[tuple[str, dict]]) -> None:
             if dist <= BASE_COHESION:
                 group = world.add_group({agent.id, other.id})
                 group.update_center([agent, other])
-                group.home = (round(group.center_x), round(group.center_y))
                 events.append(("group_formed", {
                     "group_id": str(group.id),
                     "member_ids": [str(agent.id), str(other.id)],
-                    "home": list(group.home) if group.home else None,
                 }))
                 break
 

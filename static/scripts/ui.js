@@ -50,7 +50,6 @@ export const updateAgentPanel = (agent) => {
     ['age', agent.age],
     ['vision range', agent.vision_range],
     ['group id', abbreviateId(agent.group_id)],
-    ['carrying food', agent.carrying_food ? 'yes' : 'no'],
     ['direction', formatValue(agent.direction)],
     ['last food seen', formatValue(agent.last_food_seen)]
   ]

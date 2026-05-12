@@ -9,10 +9,10 @@ from ecology import FOOD_REGROW_TICKS, form_groups
 from food import Food
 from group import Group
 from metrics import SimulationMetrics
-from movement import LONE_HEALTH_PENALTY, STOCKPILE_HUNGER_THRESHOLD, best_move, effective_vision, lone_social_target
+from movement import LONE_HEALTH_PENALTY, best_move, effective_vision, lone_social_target
 from pathfinding import astar
 from reproduction import reproduce, REPRODUCTION_HEALTH_THRESHOLD, REPRODUCTION_MATURITY_AGE
-from tasks import Task, PRIORITY_CARRY_FOOD, PRIORITY_EAT_STOCKPILE, PRIORITY_SEEK_FOOD, PRIORITY_MATE, PRIORITY_EXPLORE
+from tasks import Task, PRIORITY_SEEK_FOOD, PRIORITY_MATE, PRIORITY_EXPLORE
 from world import World, world
 
 MAX_AGE = 200
@@ -59,7 +59,7 @@ class Simulation:
         return (ex, ey)
 
     def _find_mate_target(self, agent: Agent, vision: float) -> tuple[int, int] | None:
-        if agent.carrying_food or agent.age < REPRODUCTION_MATURITY_AGE:
+        if agent.age < REPRODUCTION_MATURITY_AGE:
             return None
         min_health = int(MAX_HEALTH * REPRODUCTION_HEALTH_THRESHOLD)
         if agent.health < min_health:
@@ -70,7 +70,7 @@ class Simulation:
         for other in self.world.agents_in_range(agent, vision):
             if other.age < REPRODUCTION_MATURITY_AGE:
                 continue
-            if other.health < min_health or other.carrying_food:
+            if other.health < min_health:
                 continue
             dist = abs(agent.x - other.x) + abs(agent.y - other.y)
             if dist < best_dist:
@@ -84,18 +84,6 @@ class Simulation:
         queue: list[Task] = []
         active = self._agent_active_tasks.get(agent.id)
         path = self._agent_paths.get(agent.id, [])
-
-        if agent.carrying_food and group and group.home:
-            heapq.heappush(queue, Task(PRIORITY_CARRY_FOOD, "carry_food", group.home))
-
-        if (
-            not agent.carrying_food
-            and group
-            and group.home
-            and group.stockpile > 0
-            and agent.health < MAX_HEALTH * STOCKPILE_HUNGER_THRESHOLD
-        ):
-            heapq.heappush(queue, Task(PRIORITY_EAT_STOCKPILE, "eat_stockpile", group.home))
 
         if food_targets:
             nearest = min(food_targets, key=lambda f: abs(f.x - agent.x) + abs(f.y - agent.y))
@@ -216,7 +204,6 @@ class Simulation:
                 if dist > group.attraction_range:
                     group.member_ids.discard(mid)
                     member.group_id = None
-                    member.carrying_food = False
                     events.append(("agent_left_group", {
                         "agent_id": str(mid),
                         "group_id": str(group.id),
@@ -266,34 +253,16 @@ class Simulation:
             food = self.world.consume_food_at(agent.x, agent.y)
             if food:
                 self._regrow_queue[tick_count + FOOD_REGROW_TICKS].append((agent.x, agent.y))
-                if agent.health >= MAX_HEALTH * 0.90 and not agent.carrying_food and group and group.home:
-                    agent.carrying_food = True
-                    events.append(("agent_picked_up_food", {"agent": agent.model_dump(mode="json")}))
-                else:
-                    agent.health = MAX_HEALTH
-                    agent.direction = None
-                    events.append(("agent_ate", {
-                        "agent": agent.model_dump(mode="json"),
-                        "food_id": str(food.id),
-                    }))
+                agent.health = MAX_HEALTH
+                agent.direction = None
+                events.append(("agent_ate", {
+                    "agent": agent.model_dump(mode="json"),
+                    "food_id": str(food.id),
+                }))
             else:
                 base_drain = round(starvation_drain(agent.age, agent.is_adult) * agent.metabolism)
                 water_drain = base_drain * (WATER_DRAIN_MULTIPLIER - 1) if self.world.is_river_tile(agent.x, agent.y) else 0
                 agent.health -= base_drain + water_drain + (LONE_HEALTH_PENALTY if agent.group_id is None else 0)
-
-            if agent.carrying_food and group and group.home:
-                if (agent.x, agent.y) == group.home:
-                    group.stockpile += 1
-                    agent.carrying_food = False
-                    events.append(("food_deposited", {"group_id": str(group.id), "stockpile": group.stockpile}))
-
-            if not agent.carrying_food and group and group.home and group.stockpile > 0:
-                near_home = abs(agent.x - group.home[0]) + abs(agent.y - group.home[1]) <= 1
-                if agent.health < MAX_HEALTH * STOCKPILE_HUNGER_THRESHOLD and near_home:
-                    group.stockpile -= 1
-                    agent.health = MAX_HEALTH
-                    agent.direction = None
-                    events.append(("food_withdrawn", {"group_id": str(group.id), "stockpile": group.stockpile}))
 
             events.append(("agent_moved", {"agent": agent.model_dump(mode="json")}))
 

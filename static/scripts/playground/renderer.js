@@ -71,13 +71,6 @@ const drawAgents = (cs) => {
     ctx.lineWidth = 1
     ctx.stroke()
 
-    if (agent.carrying_food) {
-      ctx.beginPath()
-      ctx.arc(cx + cs * 0.2, cy - cs * 0.2, cs * 0.1, 0, Math.PI * 2)
-      ctx.fillStyle = '#f1c40f'
-      ctx.fill()
-    }
-
     const barW = cs * 0.8
     const barX = agent.x * cs + cs * 0.1
     const barY = agent.y * cs + cs * 0.78

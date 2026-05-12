@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/tests.css">
+</head>
+<body>
+  <div id="layout">
+    <div id="header">
+      <span id="title">TEST SUITE</span>
+      <div id="summary"></div>
+      <div id="header-actions">
+        <button id="btn-run-all">▶ Run All</button>
+        <a href="/playground" id="nav-playground">Playground</a>
+        <a href="/" id="nav-main">← Main Game</a>
+      </div>
+    </div>
+
+    <div id="test-list"></div>
+  </div>
+
+  <script type="module" src="/scripts/tests/main.js"></script>
+</body>
+</html>

@@ -13,10 +13,6 @@ SOCIAL_FRINGE_WEIGHT = 4.0
 SOCIAL_LONE_WEIGHT = 1.5
 WANDER_WEIGHT = 0.15
 MOMENTUM_WEIGHT = 0.3
-HOME_PULL_WEIGHT = 1.0
-FORAGING_RETURN_WEIGHT = 4.5
-STOCKPILE_SEEK_WEIGHT = 2.0
-STOCKPILE_HUNGER_THRESHOLD = 0.60
 LONE_HEALTH_PENALTY = 1
 LOOKAHEAD_DISCOUNT = 0.5
 
@@ -61,21 +57,11 @@ def score_move(
     if agent.direction:
         dx, dy = pos[0] - origin[0], pos[1] - origin[1]
         dot = agent.direction[0] * dx + agent.direction[1] * dy
-        lost = not food_targets and not agent.carrying_food and not agent.last_food_seen
+        lost = not food_targets and not agent.last_food_seen
         satiation = 1.0 if lost else (agent.health / MAX_HEALTH) ** 2
         score += MOMENTUM_WEIGHT * max(0.0, dot) * satiation
 
-    if group and group.home:
-        hx, hy = group.home
-        home_dist = abs(pos[0] - hx) + abs(pos[1] - hy)
-        if agent.carrying_food:
-            score += FORAGING_RETURN_WEIGHT / (1 + home_dist)
-        elif agent.health < MAX_HEALTH * STOCKPILE_HUNGER_THRESHOLD and group.stockpile > 0:
-            score += STOCKPILE_SEEK_WEIGHT / (1 + home_dist)
-        elif agent.health >= MAX_HEALTH * STOCKPILE_HUNGER_THRESHOLD or group.stockpile > 0:
-            score += HOME_PULL_WEIGHT / (1 + home_dist)
-
-    if not food_targets and not agent.carrying_food and agent.last_food_seen:
+    if not food_targets and agent.last_food_seen:
         mx, my = agent.last_food_seen
         dist = abs(pos[0] - mx) + abs(pos[1] - my)
         score += FOOD_MEMORY_WEIGHT / (1 + dist)

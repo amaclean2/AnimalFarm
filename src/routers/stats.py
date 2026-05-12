@@ -22,8 +22,6 @@ class AgentStats(BaseModel):
 class GroupStats(BaseModel):
     id: UUID
     size: int
-    stockpile: int
-    home: tuple[int, int] | None
     gravity: float
     cohesion_radius: float
     attraction_range: float
@@ -36,8 +34,6 @@ class WorldStats(BaseModel):
     agent_count: int
     group_count: int
     food_count: int
-    stockpile_count: int
-    total_stockpiled_food: int
     agents: list[AgentStats]
     groups: list[GroupStats]
 
@@ -62,8 +58,6 @@ async def get_stats() -> WorldStats:
         GroupStats(
             id=g.id,
             size=g.size,
-            stockpile=g.stockpile,
-            home=g.home,
             gravity=round(g.gravity, 3),
             cohesion_radius=round(g.cohesion_radius, 3),
             attraction_range=round(g.attraction_range, 3),
@@ -78,8 +72,6 @@ async def get_stats() -> WorldStats:
         agent_count=len(agents),
         group_count=len(groups),
         food_count=len(world.all_food()),
-        stockpile_count=sum(1 for g in world.all_groups() if g.stockpile > 0),
-        total_stockpiled_food=sum(g.stockpile for g in world.all_groups()),
         agents=agents,
         groups=groups,
     )

@@ -60,33 +60,6 @@ const drawGrid = () => {
   ctx.stroke()
 }
 
-const drawStockpiles = () => {
-  for (const group of groups.values()) {
-    if (!group.home) continue
-    const screenX = group.home[0] * viewport.cellSize - camera.x
-    const screenY = group.home[1] * viewport.cellSize - camera.y
-    if (!isVisible(screenX, screenY)) continue
-
-    const centerX = screenX + viewport.cellSize / 2
-    const centerY = screenY + viewport.cellSize / 2
-    const halfSize = viewport.cellSize * 0.23
-
-    ctx.fillStyle = group.stockpile > 0 ? 'rgba(232, 180, 80, 0.85)' : 'rgba(80, 80, 80, 0.6)'
-    ctx.strokeStyle = group.stockpile > 0 ? '#f1c40f' : '#444'
-    ctx.lineWidth = 1.5
-    ctx.beginPath()
-    ctx.rect(centerX - halfSize, centerY - halfSize, halfSize * 2, halfSize * 2)
-    ctx.fill()
-    ctx.stroke()
-
-    ctx.fillStyle = group.stockpile > 0 ? '#111' : '#666'
-    ctx.font = `bold ${Math.max(7, Math.round(viewport.cellSize * 0.3))}px Roboto, sans-serif`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(group.stockpile, centerX, centerY)
-  }
-}
-
 const drawVision = (agent, visionRadius) => {
   const centerX = agent.x * viewport.cellSize + viewport.cellSize / 2 - camera.x
   const centerY = agent.y * viewport.cellSize + viewport.cellSize / 2 - camera.y
@@ -225,18 +198,6 @@ const drawAgents = () => {
     ctx.lineWidth = 1
     ctx.stroke()
 
-    if (agent.carrying_food) {
-      ctx.beginPath()
-      ctx.arc(
-        centerX + viewport.cellSize * 0.2,
-        centerY - viewport.cellSize * 0.2,
-        viewport.cellSize * 0.1,
-        0,
-        Math.PI * 2
-      )
-      ctx.fillStyle = '#f1c40f'
-      ctx.fill()
-    }
 
     const barWidth = viewport.cellSize * 0.8
     const barX = screenX + viewport.cellSize * 0.1
@@ -288,7 +249,6 @@ const frame = (now) => {
 
   drawGrid()
   drawRivers()
-  drawStockpiles()
   if (selectedAgent) drawVision(selectedAgent, visionRadius)
   drawFood(visibleFoodIds)
   drawAgents()

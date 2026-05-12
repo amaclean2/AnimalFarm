@@ -76,7 +76,6 @@ export const updateAgentPanel = () => {
     ['pos', `${agent.x}, ${agent.y}`],
     ['age', agent.age],
     ['alive', agent.alive ? 'yes' : 'dead'],
-    ['carrying food', agent.carrying_food ? 'yes' : 'no'],
     ['direction', agent.direction ? `[${agent.direction}]` : '—'],
     ['last food seen', agent.last_food_seen ? `[${agent.last_food_seen}]` : '—'],
     ['vision', agent.vision_range],

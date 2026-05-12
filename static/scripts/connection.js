@@ -61,19 +61,12 @@ const handleMessage = (rawData) => {
       break
 
     case 'group_formed':
-      groups.set(message.group_id, { id: message.group_id, home: message.home, stockpile: 0 })
+      groups.set(message.group_id, { id: message.group_id })
       break
 
     case 'group_disbanded':
       groups.delete(message.group_id)
       break
-
-    case 'food_deposited':
-    case 'food_withdrawn': {
-      const group = groups.get(message.group_id)
-      if (group) group.stockpile = message.stockpile
-      break
-    }
 
     case 'food_placed':
     case 'food_grew':

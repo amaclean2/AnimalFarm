@@ -17,7 +17,7 @@ async def get_world() -> dict:
             for r in world.all_rivers()
         ],
         "groups": [
-            {"id": str(g.id), "home": list(g.home) if g.home else None, "stockpile": g.stockpile}
+            {"id": str(g.id)}
             for g in world.all_groups()
         ],
     }

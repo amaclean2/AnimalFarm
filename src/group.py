@@ -14,9 +14,6 @@ class Group(BaseModel):
     member_ids: set[UUID] = Field(default_factory=set)
     center_x: float = 0.0
     center_y: float = 0.0
-    home: tuple[int, int] | None = None
-    stockpile: int = 0
-
     @property
     def size(self) -> int:
         return len(self.member_ids)

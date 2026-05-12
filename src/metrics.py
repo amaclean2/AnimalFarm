@@ -18,8 +18,6 @@ class SimulationMetrics:
         self._starvation_deaths: int = 0
         self._age_deaths: int = 0
         self._food_eaten: int = 0
-        self._food_stockpiled: int = 0
-        self._food_withdrawn: int = 0
         self._groups_formed: int = 0
         self._groups_disbanded: int = 0
         self._peak_population: int = 0
@@ -46,8 +44,6 @@ class SimulationMetrics:
         self._starvation_deaths = 0
         self._age_deaths = 0
         self._food_eaten = 0
-        self._food_stockpiled = 0
-        self._food_withdrawn = 0
         self._groups_formed = 0
         self._groups_disbanded = 0
         self._peak_population = 0
@@ -134,10 +130,6 @@ class SimulationMetrics:
         
         elif event_type == "agent_ate":
             self._food_eaten += 1
-        elif event_type == "food_deposited":
-            self._food_stockpiled += 1
-        elif event_type == "food_withdrawn":
-            self._food_withdrawn += 1
         elif event_type == "group_formed":
             self._groups_formed += 1
         elif event_type == "group_disbanded":
@@ -174,8 +166,6 @@ class SimulationMetrics:
             },
             "food": {
                 "total_eaten": self._food_eaten,
-                "total_stockpiled": self._food_stockpiled,
-                "total_withdrawn": self._food_withdrawn,
                 "avg_food_tiles_per_tick": avg_food,
                 "min_food_tiles_per_tick": self._min_food_per_tick if self._min_food_per_tick is not None else 0,
             },
