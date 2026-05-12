@@ -1,14 +1,14 @@
-import { WORLD_WIDTH, WORLD_HEIGHT, MAX_HEALTH, MAX_REST, COLOR_PALETTE } from './constants.js'
+import { WORLD_WIDTH, WORLD_HEIGHT, MAX_HEALTH, MAX_REST, MUTATION_COLORS, MUTATION_PRIORITY, NO_MUTATION_COLOR } from './constants.js'
 import { agents, deadAgents, food, rivers, groups, getClockState, getSelectedAgentId, getTickMs, getDayPhase } from './state.js'
 import { camera, viewport, scrollCamera } from './camera.js'
 
 const canvas = document.getElementById('game')
 const ctx = canvas.getContext('2d')
 
-const agentColor = (agentId) => {
-  let hash = 0
-  for (const char of agentId) hash = (hash * 31 + char.charCodeAt(0)) >>> 0
-  return COLOR_PALETTE[hash % COLOR_PALETTE.length]
+const agentColor = (agent) => {
+  const expressed = agent.mutations ?? []
+  const match = MUTATION_PRIORITY.find(m => expressed.includes(m))
+  return match ? MUTATION_COLORS[match] : NO_MUTATION_COLOR
 }
 
 const healthColor = (health) => {
@@ -153,7 +153,7 @@ const agentRenderPosition = (agent, now) => {
   ]
 }
 
-const drawAgents = () => {
+const drawDeadAgents = () => {
   for (const agent of deadAgents.values()) {
     if (!agent) continue
     const screenX = agent.x * viewport.cellSize - camera.x
@@ -161,14 +161,16 @@ const drawAgents = () => {
     if (!isVisible(screenX, screenY)) continue
 
     ctx.beginPath()
-    ctx.arc(screenX + viewport.cellSize / 2, screenY + viewport.cellSize * 0.37, viewport.cellSize * 0.3, 0, Math.PI * 2)
+    ctx.arc(screenX + viewport.cellSize / 2, screenY + viewport.cellSize / 2, viewport.cellSize * 0.3, 0, Math.PI * 2)
     ctx.fillStyle = '#444'
     ctx.fill()
     ctx.strokeStyle = 'rgba(255,255,255,0.05)'
     ctx.lineWidth = 1
     ctx.stroke()
   }
+}
 
+const drawLivingAgents = () => {
   const now = performance.now()
   const selectedId = getSelectedAgentId()
 
@@ -192,7 +194,7 @@ const drawAgents = () => {
 
     ctx.beginPath()
     ctx.arc(centerX, centerY, viewport.cellSize * 0.3, 0, Math.PI * 2)
-    ctx.fillStyle = agentColor(agent.id)
+    ctx.fillStyle = agentColor(agent)
     ctx.fill()
     ctx.strokeStyle = 'rgba(255,255,255,0.15)'
     ctx.lineWidth = 1
@@ -270,8 +272,9 @@ const frame = (now) => {
   drawGrid()
   drawRivers()
   if (selectedAgent) drawVision(selectedAgent, visionRadius)
+  drawDeadAgents()
   drawFood(visibleFoodIds)
-  drawAgents()
+  drawLivingAgents()
   drawNightOverlay()
   drawPrompt()
 

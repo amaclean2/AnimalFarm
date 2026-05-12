@@ -1,4 +1,4 @@
-import { MAX_HEALTH, UUID_PATTERN, API_BASE } from './constants.js'
+import { MAX_HEALTH, UUID_PATTERN, API_BASE, MUTATION_COLORS, MUTATION_PRIORITY } from './constants.js'
 import { agents, food, groups, setClockState, getClockState, getIsNight, getDayNumber } from './state.js'
 
 const agentCountEl = document.getElementById('agent-count')
@@ -111,6 +111,24 @@ export const openStats = async () => {
       .join('')
     html += `</div>`
   }
+
+  const mutationCounts = data.mutation_counts ?? {}
+  const maxMutCount = Math.max(1, ...Object.values(mutationCounts))
+  const allMutations = [...MUTATION_PRIORITY, ...Object.keys(mutationCounts).filter(m => !MUTATION_PRIORITY.includes(m))]
+
+  html += `<div class="stats-section"><h4>Mutations</h4><div class="mutation-histogram">`
+  html += allMutations.map(m => {
+    const count = mutationCounts[m] ?? 0
+    const pct = (count / maxMutCount * 100).toFixed(1)
+    const color = MUTATION_COLORS[m] ?? '#666'
+    return `
+      <div class="mutation-row">
+        <span class="mut-label">${m.replace(/_/g, ' ')}</span>
+        <div class="mut-track"><div class="mut-fill" style="width:${pct}%;background:${color}"></div></div>
+        <span class="mut-count">${count}</span>
+      </div>`
+  }).join('')
+  html += `</div></div>`
 
   html += arrayEntries
     .map(([key, rows]) => {
