@@ -3,7 +3,12 @@ import heapq
 from world import World
 
 
-def astar(world: World, start: tuple[int, int], goal: tuple[int, int]) -> list[tuple[int, int]]:
+def astar(
+    world: World,
+    start: tuple[int, int],
+    goal: tuple[int, int],
+    blocked: set[tuple[int, int]] | None = None,
+) -> list[tuple[int, int]]:
     if start == goal:
         return []
 
@@ -26,6 +31,8 @@ def astar(world: World, start: tuple[int, int], goal: tuple[int, int]) -> list[t
             if not world.in_bounds(nx, ny):
                 continue
             neighbor = (nx, ny)
+            if blocked and neighbor in blocked and neighbor != goal:
+                continue
             tentative_g = g_score[current] + 1
             if tentative_g < g_score.get(neighbor, 10**9):
                 came_from[neighbor] = current

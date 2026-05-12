@@ -1,6 +1,6 @@
 import random
 
-from agent import Agent, VISION_RANGE
+from agent import Agent, VISION_RANGE, MAX_REST, REST_THRESHOLD_DEFAULT, NIGHT_DRAIN_DEFAULT
 
 SPONTANEOUS_MUTATION_RATE = 0.15
 VISION_BOOST = 8
@@ -11,6 +11,9 @@ _MUTATIONS: dict[str, dict] = {
     "poor_sight": {"vision_range": max(1, VISION_RANGE - VISION_PENALTY)},
     "slow_metabolism": {"metabolism": 0.6},
     "fast_metabolism": {"metabolism": 1.5},
+    "light_sleeper": {"rest_threshold": max(0, REST_THRESHOLD_DEFAULT - 15)},
+    "heavy_sleeper": {"rest_threshold": min(MAX_REST, REST_THRESHOLD_DEFAULT + 25)},
+    "night_owl": {"night_drain": 1},
 }
 
 MUTATION_NAMES = list(_MUTATIONS.keys())
@@ -30,6 +33,8 @@ def apply_expressed_mutations(agent: Agent) -> None:
     """Reset phenotype to defaults, then express all homozygous-recessive (aa) loci."""
     agent.vision_range = VISION_RANGE
     agent.metabolism = 1.0
+    agent.rest_threshold = REST_THRESHOLD_DEFAULT
+    agent.night_drain = NIGHT_DRAIN_DEFAULT
     agent.mutations = [
         locus for locus, count in sorted(agent.genotype.items())
         if count == 2 and locus in _MUTATIONS

@@ -6,6 +6,7 @@ from typing import Literal
 TickCallback = Callable[[int], Awaitable[None]]
 
 TICK_INTERVAL = float(os.getenv("TICK_INTERVAL", "0.3"))
+DAY_LENGTH = int(os.getenv("DAY_LENGTH", "60"))
 
 
 class GameClock:
@@ -19,6 +20,19 @@ class GameClock:
     @property
     def state(self) -> Literal["stopped", "running", "paused"]:
         return self._state
+
+    @property
+    def is_night(self) -> bool:
+        return (self.tick_count % DAY_LENGTH) >= DAY_LENGTH // 2
+
+    @property
+    def day_number(self) -> int:
+        return self.tick_count // DAY_LENGTH + 1
+
+    @property
+    def day_phase(self) -> float:
+        """Fraction through the current day/night cycle, 0.0–1.0."""
+        return (self.tick_count % DAY_LENGTH) / DAY_LENGTH
 
     def register(self, callback: TickCallback) -> None:
         self._callbacks.append(callback)

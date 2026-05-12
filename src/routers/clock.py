@@ -38,4 +38,11 @@ async def resume_clock() -> None:
 
 @router.get("")
 async def get_clock() -> dict:
-    return {"state": clock.state, "tick_count": clock.tick_count, "interval": clock.interval}
+    return {
+        "state": clock.state,
+        "tick_count": clock.tick_count,
+        "interval": clock.interval,
+        "is_night": clock.is_night,
+        "day_number": clock.day_number,
+        "day_phase": clock.day_phase,
+    }

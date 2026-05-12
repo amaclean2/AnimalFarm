@@ -3,6 +3,7 @@ export const WORLD_HEIGHT = 100
 export const CELL_DESKTOP = 30
 export const CELL_MOBILE = 15
 export const MAX_HEALTH = 80
+export const MAX_REST = 80
 export const SCROLL_SPEED = 600
 export const API_BASE = ''
 

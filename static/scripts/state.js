@@ -8,16 +8,25 @@ let _clockState = 'stopped'
 let _tickCount = 0
 let _selectedAgentId = null
 let _tickMs = 0
+let _isNight = false
+let _dayNumber = 1
+let _dayPhase = 0.0
 
 export const getClockState = () => _clockState
 export const getTickCount = () => _tickCount
 export const getSelectedAgentId = () => _selectedAgentId
 export const getTickMs = () => _tickMs
+export const getIsNight = () => _isNight
+export const getDayNumber = () => _dayNumber
+export const getDayPhase = () => _dayPhase
 
 export const setClockState = (state) => { _clockState = state }
 export const setTickCount = (count) => { _tickCount = count }
 export const setSelectedAgentId = (agentId) => { _selectedAgentId = agentId }
 export const setTickMs = (ms) => { _tickMs = ms }
+export const setIsNight = (v) => { _isNight = v }
+export const setDayNumber = (v) => { _dayNumber = v }
+export const setDayPhase = (v) => { _dayPhase = v }
 
 export const clearWorld = () => {
   agents.clear()

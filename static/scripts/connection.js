@@ -2,9 +2,10 @@ import { API_BASE, WS_URL } from './constants.js'
 import {
   agents, deadAgents, food, rivers, groups,
   upsertAgent, upsertFood, upsertRiver, addRiverTile,
-  clearWorld, setTickCount, setTickMs, getSelectedAgentId, setSelectedAgentId
+  clearWorld, setTickCount, setTickMs, getSelectedAgentId, setSelectedAgentId,
+  setIsNight, setDayNumber, setDayPhase,
 } from './state.js'
-import { applyClockState, updateAgentPanel, syncCounters } from './ui.js'
+import { applyClockState, updateAgentPanel, syncCounters, updateDayNightUI } from './ui.js'
 
 const tickEl = document.getElementById('tick')
 const statusEl = document.getElementById('status')
@@ -92,6 +93,10 @@ const handleMessage = (rawData) => {
     case 'tick':
       setTickCount(message.tick)
       tickEl.textContent = message.tick
+      if (message.is_night !== undefined) setIsNight(message.is_night)
+      if (message.day_number !== undefined) setDayNumber(message.day_number)
+      if (message.day_phase !== undefined) setDayPhase(message.day_phase)
+      updateDayNightUI()
       break
   }
 
@@ -122,7 +127,11 @@ export const fetchState = async () => {
   setTickCount(clockData.tick_count)
   tickEl.textContent = clockData.tick_count || '—'
   setTickMs(clockData.interval * 1000)
+  setIsNight(clockData.is_night ?? false)
+  setDayNumber(clockData.day_number ?? 1)
+  setDayPhase(clockData.day_phase ?? 0)
   applyClockState(clockData.state)
+  updateDayNightUI()
   syncCounters()
 }
 

@@ -4,7 +4,8 @@ import random
 from collections import defaultdict
 from uuid import UUID
 
-from agent import Agent, MAX_HEALTH
+from agent import Agent, MAX_HEALTH, MAX_REST
+from clock import DAY_LENGTH
 from ecology import FOOD_REGROW_TICKS, form_groups
 from food import Food
 from group import Group
@@ -15,10 +16,13 @@ from reproduction import reproduce, REPRODUCTION_HEALTH_THRESHOLD, REPRODUCTION_
 from tasks import Task, PRIORITY_SEEK_FOOD, PRIORITY_MATE, PRIORITY_EXPLORE
 from world import World, world
 
-MAX_AGE = 200
+MAX_AGE = 300
 INFANT_DRAIN = 5
 MATURITY_AGE = 30
 WATER_DRAIN_MULTIPLIER = 2
+REST_DRAIN = 2
+REST_RESTORE = 2
+DEFAULT_HEALTH_OVERRIDE = 30
 
 
 def starvation_drain(age: int, is_adult: bool = False) -> int:
@@ -37,6 +41,7 @@ class Simulation:
         self._game_logged: bool = False
         self._agent_active_tasks: dict[UUID, Task] = {}
         self._agent_paths: dict[UUID, list[tuple[int, int]]] = {}
+        self.health_override: int = DEFAULT_HEALTH_OVERRIDE
 
     def save_log(self) -> None:
         if not self._game_logged and self._metrics._ticks > 0:
@@ -118,6 +123,7 @@ class Simulation:
         group: Group | None,
         social_target: tuple[float, float, float] | None,
         vision: float,
+        occupied: set[tuple[int, int]] | None = None,
     ) -> tuple[int, int]:
         queue = self._build_task_queue(agent, food_targets, group, vision)
         top_task = queue[0]
@@ -133,7 +139,7 @@ class Simulation:
         )
 
         if replan:
-            path = astar(self.world, (agent.x, agent.y), top_task.goal_pos)
+            path = astar(self.world, (agent.x, agent.y), top_task.goal_pos, occupied)
             self._agent_active_tasks[agent.id] = top_task
 
         if path:
@@ -142,7 +148,7 @@ class Simulation:
                 path.pop(0)
                 self._agent_paths[agent.id] = path
                 return step
-            path = astar(self.world, (agent.x, agent.y), top_task.goal_pos)
+            path = astar(self.world, (agent.x, agent.y), top_task.goal_pos, occupied)
             if path and path[0] in candidates:
                 step = path.pop(0)
                 self._agent_paths[agent.id] = path
@@ -153,6 +159,7 @@ class Simulation:
 
     def on_tick(self, tick_count: int) -> list[tuple[str, dict]]:
         events: list[tuple[str, dict]] = []
+        is_night = (tick_count % DAY_LENGTH) >= DAY_LENGTH // 2
 
         for pos in self._regrow_queue.pop(tick_count, []):
             x, y = pos
@@ -241,10 +248,25 @@ class Simulation:
                 else lone_social_target(self.world, agent, agent_vision[agent.id])
             )
 
+            if agent.is_sleeping:
+                agent.rest = min(MAX_REST, agent.rest + REST_RESTORE)
+            elif is_night:
+                agent.rest = max(0, agent.rest - agent.night_drain)
+            else:
+                agent.rest = max(0, agent.rest - REST_DRAIN)
+
+            if not agent.is_sleeping and agent.rest <= agent.rest_threshold:
+                agent.is_sleeping = True
+            elif agent.is_sleeping and agent.rest >= MAX_REST:
+                agent.is_sleeping = False
+
+            should_rest = agent.is_sleeping and agent.health > self.health_override
+
             old_pos = (agent.x, agent.y)
-            agent.x, agent.y = self._next_pos(
-                agent, candidates, food_targets, group, social_target, agent_vision[agent.id]
-            )
+            if not should_rest:
+                agent.x, agent.y = self._next_pos(
+                    agent, candidates, food_targets, group, social_target, agent_vision[agent.id], occupied
+                )
             agent.direction = (agent.x - old_pos[0], agent.y - old_pos[1])
             occupied.discard(old_pos)
             occupied.add((agent.x, agent.y))

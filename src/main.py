@@ -20,7 +20,12 @@ async def _on_tick(tick_count: int) -> None:
     events = simulation.on_tick(tick_count)
     for event_name, data in events:
         await broadcast(event_name, data)
-    await broadcast("tick", {"tick": tick_count})
+    await broadcast("tick", {
+        "tick": tick_count,
+        "is_night": clock.is_night,
+        "day_number": clock.day_number,
+        "day_phase": clock.day_phase,
+    })
 
 
 @asynccontextmanager

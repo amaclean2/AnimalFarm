@@ -1,5 +1,5 @@
 import { MAX_HEALTH, UUID_PATTERN, API_BASE } from './constants.js'
-import { agents, food, groups, setClockState, getClockState } from './state.js'
+import { agents, food, groups, setClockState, getClockState, getIsNight, getDayNumber } from './state.js'
 
 const agentCountEl = document.getElementById('agent-count')
 const foodCountEl = document.getElementById('food-count')
@@ -9,6 +9,9 @@ const modalOverlay = document.getElementById('modal-overlay')
 const modalBody = document.getElementById('modal-body')
 const agentPanel = document.getElementById('agent-panel')
 const agentPanelBody = document.getElementById('agent-panel-body')
+
+const dayNumberEl = document.getElementById('day-number')
+const dayIconEl = document.getElementById('day-icon')
 
 export const btnStart = document.getElementById('btn-start')
 export const btnPause = document.getElementById('btn-pause')
@@ -59,6 +62,11 @@ export const updateAgentPanel = (agent) => {
       `<div class="agent-row"><span>${label}</span><span class="val">${value}</span></div>`
     )
     .join('')
+}
+
+export const updateDayNightUI = () => {
+  if (dayNumberEl) dayNumberEl.textContent = getDayNumber()
+  if (dayIconEl) dayIconEl.textContent = getIsNight() ? '🌙' : '☀️'
 }
 
 export const syncCounters = () => {
@@ -162,3 +170,4 @@ document.getElementById('modal-close').addEventListener('click', closeStats)
 modalOverlay.addEventListener('click', (event) => {
   if (event.target === modalOverlay) closeStats()
 })
+

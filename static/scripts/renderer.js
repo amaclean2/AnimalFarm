@@ -1,5 +1,5 @@
-import { WORLD_WIDTH, WORLD_HEIGHT, MAX_HEALTH, COLOR_PALETTE } from './constants.js'
-import { agents, deadAgents, food, rivers, groups, getClockState, getSelectedAgentId, getTickMs } from './state.js'
+import { WORLD_WIDTH, WORLD_HEIGHT, MAX_HEALTH, MAX_REST, COLOR_PALETTE } from './constants.js'
+import { agents, deadAgents, food, rivers, groups, getClockState, getSelectedAgentId, getTickMs, getDayPhase } from './state.js'
 import { camera, viewport, scrollCamera } from './camera.js'
 
 const canvas = document.getElementById('game')
@@ -202,11 +202,31 @@ const drawAgents = () => {
     const barWidth = viewport.cellSize * 0.8
     const barX = screenX + viewport.cellSize * 0.1
     const barY = screenY + viewport.cellSize * 0.73
+
     ctx.fillStyle = '#222'
     ctx.fillRect(barX, barY, barWidth, 3)
     ctx.fillStyle = healthColor(agent.health)
     ctx.fillRect(barX, barY, Math.min(barWidth * (agent.health / MAX_HEALTH), barWidth), 3)
+
+    ctx.fillStyle = '#222'
+    ctx.fillRect(barX, barY + 5, barWidth, 3)
+    ctx.fillStyle = '#5b8dd9'
+    ctx.fillRect(barX, barY + 5, barWidth * Math.max(0, agent.rest / MAX_REST), 3)
   }
+}
+
+const nightOverlayAlpha = (phase) => {
+  if (phase < 0.4) return 0
+  if (phase < 0.5) return (phase - 0.4) / 0.1
+  if (phase < 0.9) return 1
+  return 1 - (phase - 0.9) / 0.1
+}
+
+const drawNightOverlay = () => {
+  const alpha = nightOverlayAlpha(getDayPhase()) * 0.55
+  if (alpha <= 0) return
+  ctx.fillStyle = `rgba(10, 10, 50, ${alpha.toFixed(3)})`
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
 }
 
 const drawPrompt = () => {
@@ -252,6 +272,7 @@ const frame = (now) => {
   if (selectedAgent) drawVision(selectedAgent, visionRadius)
   drawFood(visibleFoodIds)
   drawAgents()
+  drawNightOverlay()
   drawPrompt()
 
   requestAnimationFrame(frame)

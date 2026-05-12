@@ -21,12 +21,12 @@ def reproduce(world: World, events: list[tuple[str, dict]], tick_count: int) -> 
     for i, agent in enumerate(agents):
         if agent.id in paired or agent.health < reproduction_min_health:
             continue
-        if agent.age < REPRODUCTION_MATURITY_AGE:
+        if agent.age < REPRODUCTION_MATURITY_AGE or agent.is_sleeping:
             continue
         for other in agents[i + 1:]:
             if other.id in paired or other.health < reproduction_min_health:
                 continue
-            if other.age < REPRODUCTION_MATURITY_AGE:
+            if other.age < REPRODUCTION_MATURITY_AGE or other.is_sleeping:
                 continue
             if abs(agent.x - other.x) + abs(agent.y - other.y) > REPRODUCTION_RANGE:
                 continue
