@@ -26,6 +26,9 @@ async def _on_tick(tick_count: int) -> None:
         "day_number": clock.day_number,
         "day_phase": clock.day_phase,
     })
+    if not list(simulation.world.all_living_agents()):
+        clock.stop()
+        await broadcast("game_over", {"tick": tick_count})
 
 
 @asynccontextmanager

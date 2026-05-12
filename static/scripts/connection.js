@@ -98,6 +98,11 @@ const handleMessage = (rawData) => {
       if (message.day_phase !== undefined) setDayPhase(message.day_phase)
       updateDayNightUI()
       break
+
+    case 'game_over':
+      applyClockState('stopped')
+      statusEl.textContent = 'Game Over'
+      break
   }
 
   syncCounters()
