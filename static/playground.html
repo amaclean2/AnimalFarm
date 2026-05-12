@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Playground</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/playground.css">
+</head>
+<body>
+  <div id="pg-layout">
+    <div id="pg-header">
+      <span id="pg-title">PLAYGROUND</span>
+      <span id="pg-tick-wrap">Tick: <span id="pg-tick">0</span></span>
+      <span id="pg-status">Connecting…</span>
+      <a href="/" id="pg-back">← Main Game</a>
+    </div>
+
+    <div id="pg-body">
+      <div id="pg-canvas-wrap">
+        <canvas id="pg-canvas"></canvas>
+        <div id="pg-hint">Click cells to place / remove food</div>
+      </div>
+
+      <div id="pg-sidebar">
+        <div class="pg-section">
+          <div class="pg-section-title">
+            Scenarios
+            <button id="btn-refresh-scenarios" class="pg-btn-icon" title="Reload scenarios file">↺</button>
+          </div>
+          <div id="pg-scenarios"><div class="pg-row">Loading…</div></div>
+          <div id="pg-scenario-status"></div>
+        </div>
+
+        <div class="pg-section">
+          <div class="pg-section-title">Agent</div>
+          <div id="pg-agent-info"></div>
+        </div>
+
+        <div class="pg-section">
+          <div class="pg-section-title">Control</div>
+          <button id="btn-reset">↺ Reset</button>
+          <button id="btn-step">→ Step Once</button>
+          <div class="pg-auto-row">
+            <button id="btn-auto">▶ Auto Run</button>
+            <input id="auto-interval" type="number" value="0.5" min="0.05" max="5" step="0.05" title="seconds per tick">
+            <span class="pg-label">s/tick</span>
+          </div>
+        </div>
+
+        <div class="pg-section">
+          <div class="pg-section-title">Food</div>
+          <button id="btn-scatter">Scatter 5</button>
+          <button id="btn-fill">Fill 30</button>
+          <button id="btn-clear-food">Clear All</button>
+        </div>
+
+        <div class="pg-section">
+          <div class="pg-section-title">Agent Cheat</div>
+          <button id="btn-heal">Heal to Full</button>
+          <button id="btn-damage">Damage −20</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/scripts/playground/main.js"></script>
+</body>
+</html>

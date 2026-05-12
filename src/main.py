@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from clock import clock
 from connections import _connections, broadcast
 from routers import agents, clock as clock_router, food, game, logs, stats, world
+from routers import playground_router
 from simulation import simulation
 
 STATIC = Path(__file__).parent.parent / "static"
@@ -44,6 +45,7 @@ app.include_router(clock_router.router)
 app.include_router(game.router)
 app.include_router(stats.router)
 app.include_router(logs.router)
+app.include_router(playground_router.router)
 
 app.mount("/scripts", StaticFiles(directory=STATIC / "scripts"), name="scripts")
 app.mount("/styles",  StaticFiles(directory=STATIC / "styles"),  name="styles")
@@ -52,6 +54,11 @@ app.mount("/styles",  StaticFiles(directory=STATIC / "styles"),  name="styles")
 @app.get("/")
 async def index() -> FileResponse:
     return FileResponse(STATIC / "index.html")
+
+
+@app.get("/playground")
+async def playground_page() -> FileResponse:
+    return FileResponse(STATIC / "playground.html")
 
 
 @app.get("/health")

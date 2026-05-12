@@ -260,8 +260,6 @@ button:disabled {
   border-radius: 3px;
 }
 
-/* ── Mobile ──────────────────────────────────────────────────────────────────── */
-
 @media (max-width: 600px) {
   #panel {
     top: 8px;

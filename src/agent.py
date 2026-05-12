@@ -22,3 +22,4 @@ class Agent(BaseModel):
     mutations: list[str] = Field(default_factory=list)
     genotype: dict[str, int] = Field(default_factory=dict)
     metabolism: float = 1.0
+    is_adult: bool = False

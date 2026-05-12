@@ -21,8 +21,10 @@ MATURITY_AGE = 30
 WATER_DRAIN_MULTIPLIER = 2
 
 
-def starvation_drain(age: int) -> int:
+def starvation_drain(age: int, is_adult: bool = False) -> int:
     """Higher drain when young, tapering linearly to 1 at MATURITY_AGE."""
+    if is_adult:
+        return 1
     t = min(age, MATURITY_AGE) / MATURITY_AGE
     return max(1, round(INFANT_DRAIN + (1 - INFANT_DRAIN) * t))
 
@@ -275,7 +277,7 @@ class Simulation:
                         "food_id": str(food.id),
                     }))
             else:
-                base_drain = round(starvation_drain(agent.age) * agent.metabolism)
+                base_drain = round(starvation_drain(agent.age, agent.is_adult) * agent.metabolism)
                 water_drain = base_drain * (WATER_DRAIN_MULTIPLIER - 1) if self.world.is_river_tile(agent.x, agent.y) else 0
                 agent.health -= base_drain + water_drain + (LONE_HEALTH_PENALTY if agent.group_id is None else 0)
 
