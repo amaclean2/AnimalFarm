@@ -1,5 +1,5 @@
 import { WORLD_WIDTH, WORLD_HEIGHT, MAX_HEALTH, MAX_REST, MUTATION_COLORS, MUTATION_PRIORITY, NO_MUTATION_COLOR } from './constants.js'
-import { agents, deadAgents, food, rivers, groups, getClockState, getSelectedAgentId, getTickMs, getDayPhase } from './state.js'
+import { agents, deadAgents, food, rivers, groups, homes, getClockState, getSelectedAgentId, getTickMs, getDayPhase } from './state.js'
 import { camera, viewport, scrollCamera } from './camera.js'
 
 const canvas = document.getElementById('game')
@@ -78,6 +78,33 @@ const drawVision = (agent, visionRadius) => {
   ctx.setLineDash([6, 4])
   ctx.stroke()
   ctx.setLineDash([])
+}
+
+const drawHomes = () => {
+  for (const home of homes.values()) {
+    const screenX = home.x * viewport.cellSize - camera.x
+    const screenY = home.y * viewport.cellSize - camera.y
+    if (!isVisible(screenX, screenY)) continue
+
+    const s = viewport.cellSize
+    const wallW = s * 0.55
+    const wallH = s * 0.35
+    const wallX = screenX + (s - wallW) / 2
+    const wallY = screenY + s * 0.52
+
+    // roof
+    ctx.beginPath()
+    ctx.moveTo(screenX + s * 0.5, screenY + s * 0.2)
+    ctx.lineTo(screenX + s * 0.15, screenY + s * 0.52)
+    ctx.lineTo(screenX + s * 0.85, screenY + s * 0.52)
+    ctx.closePath()
+    ctx.fillStyle = 'rgba(180, 100, 40, 0.85)'
+    ctx.fill()
+
+    // walls
+    ctx.fillStyle = 'rgba(220, 170, 100, 0.85)'
+    ctx.fillRect(wallX, wallY, wallW, wallH)
+  }
 }
 
 const drawFood = (visibleFoodIds) => {
@@ -200,6 +227,18 @@ const drawLivingAgents = () => {
     ctx.lineWidth = 1
     ctx.stroke()
 
+    if (agent.carried_food) {
+      const dotX = centerX + viewport.cellSize * 0.18
+      const dotY = centerY - viewport.cellSize * 0.28
+      const dotR = viewport.cellSize * 0.1
+      ctx.beginPath()
+      ctx.arc(dotX, dotY, dotR, 0, Math.PI * 2)
+      ctx.fillStyle = '#27ae60'
+      ctx.fill()
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)'
+      ctx.lineWidth = 1
+      ctx.stroke()
+    }
 
     const barWidth = viewport.cellSize * 0.8
     const barX = screenX + viewport.cellSize * 0.1
@@ -271,6 +310,7 @@ const frame = (now) => {
 
   drawGrid()
   drawRivers()
+  drawHomes()
   if (selectedAgent) drawVision(selectedAgent, visionRadius)
   drawDeadAgents()
   drawFood(visibleFoodIds)

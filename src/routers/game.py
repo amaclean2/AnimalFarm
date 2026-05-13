@@ -6,14 +6,15 @@ from fastapi import APIRouter, HTTPException
 from clock import clock
 from connections import broadcast
 from ecology import flow_rivers
-from simulation import MATURITY_AGE
+from mutations import seed_genotype
+from agent import MATURITY_AGE
 from world import world
 
 router = APIRouter()
 
-NUM_FOOD_CLUSTERS = 3
-CLUSTER_SIGMA = 5.0
-FOOD_PEAK_PROBABILITY = 0.4
+NUM_FOOD_CLUSTERS = 4
+CLUSTER_SIGMA = 6.0
+FOOD_PEAK_PROBABILITY = 0.5
 AGENT_COUNT = 20
 NUM_SPRINGS = 2
 
@@ -51,6 +52,7 @@ async def start_game() -> None:
     agents_born = []
     for x, y in random.sample(all_cells, AGENT_COUNT):
         agent = world.add_agent(x, y, age=MATURITY_AGE)
+        seed_genotype(agent)
         agents_born.append(agent.model_dump(mode="json"))
 
     rivers_formed = [

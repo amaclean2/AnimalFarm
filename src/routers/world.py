@@ -20,4 +20,5 @@ async def get_world() -> dict:
             {"id": str(g.id)}
             for g in world.all_groups()
         ],
+        "homes": [h.model_dump(mode="json") for h in world.all_homes()],
     }

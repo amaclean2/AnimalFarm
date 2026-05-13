@@ -3,6 +3,7 @@ export const deadAgents = new Map()
 export const food = new Map()
 export const rivers = new Map()
 export const groups = new Map()
+export const homes = new Map()
 
 let _clockState = 'stopped'
 let _tickCount = 0
@@ -34,6 +35,7 @@ export const clearWorld = () => {
   food.clear()
   rivers.clear()
   groups.clear()
+  homes.clear()
   setSelectedAgentId(null)
 }
 

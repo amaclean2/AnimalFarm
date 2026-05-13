@@ -31,6 +31,8 @@ def astar(
             if not world.in_bounds(nx, ny):
                 continue
             neighbor = (nx, ny)
+            if world.is_home_tile(nx, ny) and neighbor != goal:
+                continue
             if blocked and neighbor in blocked and neighbor != goal:
                 continue
             tentative_g = g_score[current] + 1

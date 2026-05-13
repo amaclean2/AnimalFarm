@@ -18,6 +18,22 @@ _MUTATIONS: dict[str, dict] = {
 
 MUTATION_NAMES = list(_MUTATIONS.keys())
 
+SEED_HETEROZYGOUS_RATE = 0.25
+SEED_HOMOZYGOUS_RATE = 0.05
+
+
+def seed_genotype(agent: Agent) -> None:
+    """Give a founding agent random alleles to bootstrap the gene pool."""
+    genotype: dict[str, int] = {}
+    for locus in MUTATION_NAMES:
+        roll = random.random()
+        if roll < SEED_HOMOZYGOUS_RATE:
+            genotype[locus] = 2
+        elif roll < SEED_HOMOZYGOUS_RATE + SEED_HETEROZYGOUS_RATE:
+            genotype[locus] = 1
+    agent.genotype = genotype
+    apply_expressed_mutations(agent)
+
 
 def _alleles_passed(count: int) -> int:
     """Alleles a parent with `count` recessive copies contributes to a child."""

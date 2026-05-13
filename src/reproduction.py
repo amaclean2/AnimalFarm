@@ -1,7 +1,6 @@
 import random
 from uuid import UUID
 
-from agent import MAX_HEALTH
 from mutations import inherit_or_mutate
 from world import World
 
@@ -17,16 +16,11 @@ def reproduce(world: World, events: list[tuple[str, dict]], tick_count: int) -> 
     paired: set[UUID] = set()
     eligible_pairs = 0
 
-    reproduction_min_health = int(MAX_HEALTH * REPRODUCTION_HEALTH_THRESHOLD)
     for i, agent in enumerate(agents):
-        if agent.id in paired or agent.health < reproduction_min_health:
-            continue
-        if agent.age < REPRODUCTION_MATURITY_AGE or agent.is_sleeping:
+        if agent.id in paired or not agent.is_eligible_to_mate():
             continue
         for other in agents[i + 1:]:
-            if other.id in paired or other.health < reproduction_min_health:
-                continue
-            if other.age < REPRODUCTION_MATURITY_AGE or other.is_sleeping:
+            if other.id in paired or not other.is_eligible_to_mate():
                 continue
             if abs(agent.x - other.x) + abs(agent.y - other.y) > REPRODUCTION_RANGE:
                 continue

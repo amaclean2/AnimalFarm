@@ -1,6 +1,6 @@
 import { API_BASE, WS_URL } from './constants.js'
 import {
-  agents, deadAgents, food, rivers, groups,
+  agents, deadAgents, food, rivers, groups, homes,
   upsertAgent, upsertFood, upsertRiver, addRiverTile,
   clearWorld, setTickCount, setTickMs, getSelectedAgentId, setSelectedAgentId,
   setIsNight, setDayNumber, setDayPhase,
@@ -32,9 +32,15 @@ const handleMessage = (rawData) => {
       break
 
     case 'agent_created':
-    case 'agent_born':
+    case 'agent_born': {
+      const agent = upsertAgent(message.agent, { mustStop: true })
+      if (agent.id === getSelectedAgentId()) updateAgentPanel(agent)
+      break
+    }
+
     case 'agent_picked_up_food': {
       const agent = upsertAgent(message.agent, { mustStop: true })
+      food.delete(message.food_id)
       if (agent.id === getSelectedAgentId()) updateAgentPanel(agent)
       break
     }
@@ -76,6 +82,14 @@ const handleMessage = (rawData) => {
 
     case 'food_removed':
       food.delete(message.food.id)
+      break
+
+    case 'home_built':
+      homes.set(message.home.id, message.home)
+      break
+
+    case 'home_removed':
+      homes.delete(message.home.id)
       break
 
     case 'food_drowned':
@@ -128,6 +142,7 @@ export const fetchState = async () => {
   worldData.food.forEach(upsertFood)
   worldData.rivers.forEach(upsertRiver)
   ;(worldData.groups ?? []).forEach((group) => groups.set(group.id, group))
+  ;(worldData.homes ?? []).forEach((home) => homes.set(home.id, home))
 
   setTickCount(clockData.tick_count)
   tickEl.textContent = clockData.tick_count || '—'

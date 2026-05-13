@@ -21,6 +21,8 @@ const handleCanvasSelect = (screenX, screenY) => {
   updateAgentPanel(nextSelection ? agents.get(nextSelection) : null)
 }
 
+console.log('shy agents')
+
 canvas.addEventListener('click', (event) => {
   handleCanvasSelect(event.clientX, event.clientY)
 })
