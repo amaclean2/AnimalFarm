@@ -21,7 +21,7 @@ class StartConfig(BaseModel):
     num_food_clusters: int | None = None
     food_peak_probability: float | None = None
     max_age: int | None = None
-    adult_drain: int | None = None
+    hunger_base_drain: float | None = None
     reproduction_chance: float | None = None
     spontaneous_mutation_rate: float | None = None
 
@@ -41,12 +41,9 @@ def get_config() -> dict:
         "num_food_clusters": cfg.NUM_FOOD_CLUSTERS,
         "food_peak_probability": cfg.FOOD_PEAK_PROBABILITY,
         "max_age": cfg.MAX_AGE,
-        "adult_drain": cfg.ADULT_DRAIN,
+        "hunger_base_drain": cfg.HUNGER_BASE_DRAIN,
         "reproduction_chance": cfg.REPRODUCTION_CHANCE,
         "spontaneous_mutation_rate": cfg.SPONTANEOUS_MUTATION_RATE,
-        "max_hunger": cfg.MAX_HUNGER,
-        "max_rest": cfg.MAX_REST,
-        "max_water": cfg.MAX_WATER,
     }
 
 
@@ -61,7 +58,7 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
         NUM_FOOD_CLUSTERS=body.num_food_clusters,
         FOOD_PEAK_PROBABILITY=body.food_peak_probability,
         MAX_AGE=body.max_age,
-        ADULT_DRAIN=body.adult_drain,
+        HUNGER_BASE_DRAIN=body.hunger_base_drain,
         REPRODUCTION_CHANCE=body.reproduction_chance,
         SPONTANEOUS_MUTATION_RATE=body.spontaneous_mutation_rate,
     )
@@ -69,11 +66,29 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
 
     all_cells = [(x, y) for x in range(world.width) for y in range(world.height)]
 
-    world.generate_elevation(seed=random.randint(0, 999999))
+    seed = random.randint(0, 999999)
+    world.generate_elevation(seed=seed)
+    world.generate_climate(seed=seed)
 
-    spring_xs = random.sample(range(world.width), cfg.NUM_SPRINGS)
-    for x in spring_xs:
-        world.add_spring(x, 0)
+    neighbors = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+    peaks = [
+        (x, y)
+        for x in range(1, world.width - 1)
+        for y in range(1, world.height - 1)
+        if all(
+            world.elevation_at(x, y) > world.elevation_at(x + dx, y + dy)
+            for dx, dy in neighbors
+        )
+    ]
+    if len(peaks) < cfg.NUM_SPRINGS:
+        peaks = sorted(
+            [(x, y) for x in range(world.width) for y in range(world.height)],
+            key=lambda p: world.elevation_at(*p),
+            reverse=True,
+        )
+    chosen_springs = random.sample(peaks, min(cfg.NUM_SPRINGS, len(peaks)))
+    for x, y in chosen_springs:
+        world.add_spring(x, y)
     while not all(r.complete for r in world.all_rivers()):
         flow_rivers(world, [])
 
@@ -109,6 +124,9 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
             "food": food_placed,
             "rivers": rivers_formed,
             "elevation": world.all_elevation(),
+            "temperature": world.all_temperature(),
+            "precipitation": world.all_precipitation(),
+            "clouds": world.clouds_to_list(),
         },
     )
     clock.start()

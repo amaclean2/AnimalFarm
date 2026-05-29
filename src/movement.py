@@ -2,7 +2,6 @@ import random
 
 from agent import Agent
 from config import (
-    MAX_HUNGER,
     VISION_BONUS,
     FOOD_BASE_WEIGHT,
     FOOD_HUNGER_BONUS,
@@ -40,7 +39,7 @@ def score_move(
 
     if food_targets:
         nearest_dist = min(abs(f.x - pos[0]) + abs(f.y - pos[1]) for f in food_targets)
-        hunger = (MAX_HUNGER - agent.hunger) / MAX_HUNGER
+        hunger = 1.0 - agent.hunger
         score += (FOOD_BASE_WEIGHT + FOOD_HUNGER_BONUS * hunger) / (1 + nearest_dist)
 
     if group:
@@ -51,7 +50,7 @@ def score_move(
             else SOCIAL_COHESION_WEIGHT
         )
         if not food_targets:
-            hunger = (MAX_HUNGER - agent.hunger) / MAX_HUNGER
+            hunger = 1.0 - agent.hunger
             weight *= max(0.0, 1.0 - hunger)
         score += weight / (1 + dist)
     elif social_target:
@@ -63,7 +62,7 @@ def score_move(
         dx, dy = pos[0] - origin[0], pos[1] - origin[1]
         dot = agent.direction[0] * dx + agent.direction[1] * dy
         lost = not food_targets and not agent.last_food_seen
-        satiation = 1.0 if lost else (agent.hunger / MAX_HUNGER) ** 2
+        satiation = 1.0 if lost else agent.hunger**2
         score += MOMENTUM_WEIGHT * max(0.0, dot) * satiation
 
     if not food_targets and agent.last_food_seen:

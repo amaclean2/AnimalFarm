@@ -6,7 +6,6 @@ from agent.mutations import inherit_or_mutate
 from config import (
     REPRODUCTION_HUNGER_THRESHOLD,
     REPRODUCTION_RANGE,
-    MAX_HUNGER,
 )
 from world import World
 

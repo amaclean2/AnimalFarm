@@ -8,8 +8,6 @@ from agent.memory import Memory
 from agent.needs import NeedState
 import config as _cfg
 from config import (
-    MAX_HUNGER,
-    MAX_REST,
     REPRODUCTION_HUNGER_THRESHOLD,
     VISION_RANGE,
     CONTINUATION_BONUS,
@@ -116,7 +114,7 @@ class Agent(BaseModel):
 
     @computed_field
     @property
-    def hunger(self) -> int:
+    def hunger(self) -> float:
         return self.needs.hunger
 
     @computed_field
@@ -131,12 +129,12 @@ class Agent(BaseModel):
 
     @computed_field
     @property
-    def rest(self) -> int:
+    def rest(self) -> float:
         return self.needs.rest
 
     @computed_field
     @property
-    def water(self) -> int:
+    def water(self) -> float:
         return self.needs.water
 
     # backward compat for movement.py: nearest recently-observed food position
@@ -167,8 +165,10 @@ class Agent(BaseModel):
 
     # --- need delegation ---
 
-    def tick_needs(self, is_night: bool, tile_quality: float = 1.0) -> None:
-        self.needs.tick(is_night, tile_quality)
+    def tick_needs(
+        self, is_night: bool, tile_quality: float = 1.0, temperature: float = 0.5
+    ) -> None:
+        self.needs.tick(is_night, tile_quality, temperature)
 
     def apply_hunger_drain(self, is_river: bool, is_lone: bool) -> None:
         self.needs.apply_hunger_drain(self.age, self.is_adult, is_river, is_lone)
@@ -192,7 +192,7 @@ class Agent(BaseModel):
     def is_eligible_to_mate(self) -> bool:
         return (
             self.age >= _cfg.MATURITY_AGE
-            and self.needs.hunger >= int(MAX_HUNGER * REPRODUCTION_HUNGER_THRESHOLD)
+            and self.needs.hunger >= REPRODUCTION_HUNGER_THRESHOLD
             and not self.needs.is_sleeping
         )
 
@@ -268,7 +268,7 @@ class Agent(BaseModel):
         mate_pos: tuple[int, int] | None,
         rest_target: tuple[int, int] | None = None,
     ) -> list[str]:
-        if self.needs.is_sleeping and self.needs.rest < MAX_REST and rest_target:
+        if self.needs.is_sleeping and self.needs.rest < 1.0 and rest_target:
             return ["sleep"]
 
         actions = ["explore"]
@@ -279,7 +279,7 @@ class Agent(BaseModel):
         if water_target:
             actions.append("drink")
 
-        if rest_target and self.needs.rest < MAX_REST:
+        if rest_target and self.needs.rest < 1.0:
             actions.append("sleep")
 
         if mate_pos:

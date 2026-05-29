@@ -18,4 +18,7 @@ async def get_world() -> dict:
         ],
         "groups": [{"id": str(g.id)} for g in world.all_groups()],
         "elevation": world.all_elevation(),
+        "temperature": world.all_temperature(),
+        "precipitation": world.all_precipitation(),
+        "clouds": world.clouds_to_list(),
     }

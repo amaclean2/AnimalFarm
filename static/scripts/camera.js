@@ -43,7 +43,6 @@ export const clampCamera = () => {
 };
 
 export const resize = () => {
-  viewport.cellSize = mobileQuery.matches ? CELL_MOBILE : CELL_DESKTOP;
   const panelBottom = mobileQuery.matches
     ? Math.round(panel.getBoundingClientRect().bottom) + 8
     : 0;
@@ -74,11 +73,36 @@ window.addEventListener("keydown", (event) => {
 window.addEventListener("keyup", (event) => pressedKeys.delete(event.key));
 
 const LINE_HEIGHT = 16;
+const CELL_MAX = 80;
+
+const cellMin = () =>
+  Math.max(canvas.width / WORLD_WIDTH, canvas.height / WORLD_HEIGHT);
+
+const zoomToward = (screenX, screenY, newCellSize) => {
+  const clamped = Math.max(cellMin(), Math.min(CELL_MAX, newCellSize));
+  const worldX = (camera.x + screenX) / viewport.cellSize;
+  const worldY = (camera.y + screenY) / viewport.cellSize;
+  viewport.cellSize = clamped;
+  camera.x = worldX * clamped - screenX;
+  camera.y = worldY * clamped - screenY;
+  clampCamera();
+};
 
 canvas.addEventListener(
   "wheel",
   (event) => {
     event.preventDefault();
+
+    if (event.ctrlKey) {
+      const rect = canvas.getBoundingClientRect();
+      zoomToward(
+        event.clientX - rect.left,
+        event.clientY - rect.top,
+        viewport.cellSize * (1 - event.deltaY * 0.02),
+      );
+      return;
+    }
+
     const scale =
       event.deltaMode === 1
         ? LINE_HEIGHT
@@ -91,3 +115,44 @@ canvas.addEventListener(
   },
   { passive: false },
 );
+
+let _pinchDist = null;
+let _pinchCellSize = null;
+
+const pinchDist = (t1, t2) => {
+  const dx = t1.clientX - t2.clientX;
+  const dy = t1.clientY - t2.clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+};
+
+canvas.addEventListener(
+  "touchstart",
+  (event) => {
+    if (event.touches.length !== 2) return;
+    _pinchDist = pinchDist(event.touches[0], event.touches[1]);
+    _pinchCellSize = viewport.cellSize;
+  },
+  { passive: true },
+);
+
+canvas.addEventListener(
+  "touchmove",
+  (event) => {
+    if (event.touches.length !== 2 || _pinchDist === null) return;
+    event.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const midX =
+      (event.touches[0].clientX + event.touches[1].clientX) / 2 - rect.left;
+    const midY =
+      (event.touches[0].clientY + event.touches[1].clientY) / 2 - rect.top;
+    const dist = pinchDist(event.touches[0], event.touches[1]);
+    zoomToward(midX, midY, _pinchCellSize * (dist / _pinchDist));
+  },
+  { passive: false },
+);
+
+const resetPinch = () => {
+  _pinchDist = null;
+};
+canvas.addEventListener("touchend", resetPinch);
+canvas.addEventListener("touchcancel", resetPinch);

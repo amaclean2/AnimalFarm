@@ -12,9 +12,6 @@ import {
   getClockState,
   getIsNight,
   getDayNumber,
-  getMaxHunger,
-  getMaxRest,
-  getMaxWater,
   snapAgentsToGrid,
 } from "./state.js";
 
@@ -25,6 +22,7 @@ const statusEl = document.getElementById("status");
 const modalOverlay = document.getElementById("modal-overlay");
 const modalBody = document.getElementById("modal-body");
 const agentPanel = document.getElementById("agent-panel");
+const agentPanelTitle = document.getElementById("agent-panel-title");
 const agentPanelBody = document.getElementById("agent-panel-body");
 
 const dayNumberEl = document.getElementById("day-number");
@@ -56,11 +54,11 @@ export const abbreviateField = (value) => {
   return UUID_PATTERN.test(String(value)) ? String(value).slice(0, 8) : value;
 };
 
-const agentBar = (label, value, max, color) => {
-  const pct = Math.min(100, Math.max(0, (value / max) * 100)).toFixed(1);
+const agentBar = (label, value, color) => {
+  const pct = Math.min(100, Math.max(0, value * 100)).toFixed(1);
   return `
     <div class="agent-bar-row">
-      <div class="agent-bar-label">${label}<span class="agent-bar-val">${value}/${max}</span></div>
+      <div class="agent-bar-label">${label}<span class="agent-bar-val">${Math.round(value * 100)}%</span></div>
       <div class="agent-bar-track"><div class="agent-bar-fill" style="width:${pct}%;background:${color}"></div></div>
     </div>`;
 };
@@ -74,11 +72,11 @@ export const updateAgentPanel = (agent) => {
 
   agentPanel.classList.remove("hidden");
 
+  if (agentPanelTitle)
+    agentPanelTitle.textContent = `Agent ${abbreviateId(agent.id)}`;
+
   const rows = [
-    ["id", abbreviateId(agent.id)],
-    ["x / y", `${agent.x}, ${agent.y}`],
     ["age", agent.age],
-    ["group", abbreviateId(agent.group_id)],
     [
       "action",
       agent.active_task ? agent.active_task.name.replace(/_/g, " ") : "—",
@@ -94,9 +92,9 @@ export const updateAgentPanel = (agent) => {
 
   const barsHtml =
     `<div class="agent-bars">` +
-    agentBar("hunger", agent.hunger, getMaxHunger(), "#c0392b") +
-    agentBar("thirst", agent.water, getMaxWater(), "#27a4c0") +
-    agentBar("rest", agent.rest, getMaxRest(), "#5b8dd9") +
+    agentBar("hunger", agent.hunger, "#c0392b") +
+    agentBar("thirst", agent.water, "#27a4c0") +
+    agentBar("rest", agent.rest, "#5b8dd9") +
     `</div>`;
 
   agentPanelBody.innerHTML = infoHtml + barsHtml;

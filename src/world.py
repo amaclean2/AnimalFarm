@@ -12,34 +12,11 @@ from config import (
 )
 from food import Food
 from group import Group
+from noise import value_noise_2d
 from river import River
+from weather import WeatherSystem
 
 _DIRECTIONS = [(0, 0), (0, 1), (0, -1), (1, 0), (-1, 0)]
-
-
-def _value_noise_2d(x: int, y: int, scale: float, seed: int) -> float:
-    def corner_val(xi: int, yi: int) -> float:
-        n = xi * 1619 + yi * 31337 + seed * 1013904223
-        n = (n ^ (n >> 8)) & 0xFFFFFFFF
-        return (n & 0xFFFF) / 0xFFFF
-
-    fx = x / scale
-    fy = y / scale
-    xi, yi = int(fx), int(fy)
-    tx = fx - xi
-    ty = fy - yi
-    tx = tx * tx * (3 - 2 * tx)
-    ty = ty * ty * (3 - 2 * ty)
-    v00 = corner_val(xi, yi)
-    v10 = corner_val(xi + 1, yi)
-    v01 = corner_val(xi, yi + 1)
-    v11 = corner_val(xi + 1, yi + 1)
-    return (
-        v00 * (1 - tx) * (1 - ty)
-        + v10 * tx * (1 - ty)
-        + v01 * (1 - tx) * ty
-        + v11 * tx * ty
-    )
 
 
 def _write_decision_log(agent: Agent) -> None:
@@ -70,6 +47,7 @@ class World:
         self._river_tiles: set[tuple[int, int]] = set()
         self._rest_quality: dict[tuple[int, int], float] = {}
         self._elevation: list[float] = []
+        self._weather = WeatherSystem(width, height)
 
     def in_bounds(self, x: int, y: int) -> bool:
         return 0 <= x < self.width and 0 <= y < self.height
@@ -197,8 +175,8 @@ class World:
                     self._rest_quality[(x, y)] = 0.0
                     continue
 
-                coarse = _value_noise_2d(x, y, scale=20.0, seed=seed)
-                fine = _value_noise_2d(x, y, scale=8.0, seed=seed + 999)
+                coarse = value_noise_2d(x, y, scale=20.0, seed=seed)
+                fine = value_noise_2d(x, y, scale=8.0, seed=seed + 999)
                 noise = 0.7 * coarse + 0.3 * fine
 
                 rd = river_dist.get((x, y), max_river_dist)
@@ -341,9 +319,9 @@ class World:
         self._elevation = []
         for y in range(self.height):
             for x in range(self.width):
-                coarse = _value_noise_2d(x, y, scale=40.0, seed=seed)
-                medium = _value_noise_2d(x, y, scale=15.0, seed=seed + 1)
-                fine = _value_noise_2d(x, y, scale=6.0, seed=seed + 2)
+                coarse = value_noise_2d(x, y, scale=40.0, seed=seed)
+                medium = value_noise_2d(x, y, scale=15.0, seed=seed + 1)
+                fine = value_noise_2d(x, y, scale=6.0, seed=seed + 2)
                 self._elevation.append(0.4 * coarse + 0.3 * medium + 0.3 * fine)
 
     def elevation_at(self, x: int, y: int) -> float:
@@ -354,6 +332,27 @@ class World:
     def all_elevation(self) -> list[float]:
         return self._elevation
 
+    def generate_climate(self, seed: int) -> None:
+        self._weather.generate(seed, self.elevation_at)
+
+    def temperature_at(self, x: int, y: int) -> float:
+        return self._weather.temperature_at(x, y)
+
+    def precipitation_at(self, x: int, y: int) -> float:
+        return self._weather.precipitation_at(x, y)
+
+    def all_temperature(self) -> list[float]:
+        return self._weather.base_temperature()
+
+    def all_precipitation(self) -> list[float]:
+        return self._weather.base_precipitation()
+
+    def tick_clouds(self) -> None:
+        self._weather.tick()
+
+    def clouds_to_list(self) -> list[dict]:
+        return self._weather.clouds_to_list()
+
     def reset(self) -> None:
         self._agents.clear()
         self._food.clear()
@@ -362,6 +361,7 @@ class World:
         self._river_tiles.clear()
         self._rest_quality.clear()
         self._elevation.clear()
+        self._weather.reset()
 
     # --- Rivers ---
 
@@ -376,7 +376,7 @@ class World:
     def extend_river(self, river: River, x: int, y: int) -> None:
         river.tiles.append((x, y))
         self._river_tiles.add((x, y))
-        if y >= self.height - 1:
+        if x == 0 or x >= self.width - 1 or y == 0 or y >= self.height - 1:
             river.complete = True
 
     def is_river_tile(self, x: int, y: int) -> bool:

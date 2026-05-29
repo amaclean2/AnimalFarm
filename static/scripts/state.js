@@ -1,4 +1,4 @@
-import { WORLD_WIDTH } from "./constants.js";
+import { WORLD_WIDTH, WORLD_HEIGHT } from "./constants.js";
 
 export const agents = new Map();
 export const deadAgents = new Map();
@@ -12,6 +12,62 @@ export const setElevation = (data) => {
 };
 export const getElevationAt = (x, y) => _elevation[y * WORLD_WIDTH + x] ?? 0.5;
 
+let _temperature = [];
+export const setTemperature = (data) => {
+  _temperature = data ?? [];
+};
+export const getTemperatureAt = (x, y) =>
+  _temperature[y * WORLD_WIDTH + x] ?? 0.5;
+
+let _precipitation = [];
+export const setPrecipitation = (data) => {
+  _precipitation = data ?? [];
+};
+export const getPrecipitationAt = (x, y) =>
+  _precipitation[y * WORLD_WIDTH + x] ?? 0.5;
+
+const CLOUD_PRECIP_STRENGTH = 0.7;
+const CLOUD_TEMP_REDUCTION = 0.25;
+
+let _clouds = [];
+export const setClouds = (data) => {
+  _clouds = data ?? [];
+};
+export const getClouds = () => _clouds;
+
+const cloudContributionAt = (cloud, x, y) => {
+  const dx = Math.min(
+    Math.abs(x - cloud.cx),
+    WORLD_WIDTH - Math.abs(x - cloud.cx),
+  );
+  const dy = Math.min(
+    Math.abs(y - cloud.cy),
+    WORLD_HEIGHT - Math.abs(y - cloud.cy),
+  );
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist >= cloud.radius) return 0;
+  const t = 1 - dist / cloud.radius;
+  return t * t * (3 - 2 * t) * cloud.strength;
+};
+
+export const getEffectivePrecipitationAt = (x, y) => {
+  const base = getPrecipitationAt(x, y);
+  const total = _clouds.reduce(
+    (sum, c) => sum + cloudContributionAt(c, x, y),
+    0,
+  );
+  return Math.min(1, base + CLOUD_PRECIP_STRENGTH * Math.min(1, total));
+};
+
+export const getEffectiveTemperatureAt = (x, y) => {
+  const base = getTemperatureAt(x, y);
+  const total = _clouds.reduce(
+    (sum, c) => sum + cloudContributionAt(c, x, y),
+    0,
+  );
+  return Math.max(0, base - CLOUD_TEMP_REDUCTION * Math.min(1, total));
+};
+
 let _clockState = "stopped";
 let _tickCount = 0;
 let _selectedAgentId = null;
@@ -19,9 +75,6 @@ let _tickMs = 0;
 let _isNight = false;
 let _dayNumber = 1;
 let _dayPhase = 0.0;
-let _maxHunger = 80;
-let _maxRest = 80;
-let _maxWater = 80;
 
 export const getClockState = () => _clockState;
 export const getTickCount = () => _tickCount;
@@ -30,9 +83,6 @@ export const getTickMs = () => _tickMs;
 export const getIsNight = () => _isNight;
 export const getDayNumber = () => _dayNumber;
 export const getDayPhase = () => _dayPhase;
-export const getMaxHunger = () => _maxHunger;
-export const getMaxRest = () => _maxRest;
-export const getMaxWater = () => _maxWater;
 
 export const setClockState = (state) => {
   _clockState = state;
@@ -55,15 +105,6 @@ export const setDayNumber = (v) => {
 export const setDayPhase = (v) => {
   _dayPhase = v;
 };
-export const setMaxHunger = (v) => {
-  _maxHunger = v;
-};
-export const setMaxRest = (v) => {
-  _maxRest = v;
-};
-export const setMaxWater = (v) => {
-  _maxWater = v;
-};
 
 export const snapAgentsToGrid = () => {
   for (const agent of agents.values()) {
@@ -82,6 +123,9 @@ export const clearWorld = () => {
   groups.clear();
   setSelectedAgentId(null);
   _elevation = [];
+  _temperature = [];
+  _precipitation = [];
+  _clouds = [];
 };
 
 export const upsertAgent = (agentData) => {

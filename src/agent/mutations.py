@@ -3,7 +3,7 @@ import random
 import config as _cfg
 from config import (
     VISION_RANGE,
-    NIGHT_DRAIN,
+    REST_NIGHT_MULTIPLIER,
     VISION_BOOST,
     VISION_PENALTY,
     SEED_HETEROZYGOUS_RATE,
@@ -15,12 +15,12 @@ _MUTATIONS: dict[str, dict] = {
     "poor_sight": {"vision_range": max(1, VISION_RANGE - VISION_PENALTY)},
     "slow_metabolism": {"metabolism": 0.6},
     "fast_metabolism": {"metabolism": 1.5},
-    "night_owl": {"night_drain": 1},
+    "night_owl": {"night_drain_multiplier": 1.0},
 }
 
 MUTATION_NAMES = list(_MUTATIONS.keys())
 
-_NEEDS_ATTRS = {"metabolism", "night_drain"}
+_NEEDS_ATTRS = {"metabolism", "night_drain_multiplier"}
 
 
 def seed_genotype(agent) -> None:
@@ -46,7 +46,7 @@ def _alleles_passed(count: int) -> int:
 def apply_expressed_mutations(agent) -> None:
     agent.vision_range = VISION_RANGE
     agent.needs.metabolism = 1.0
-    agent.needs.night_drain = NIGHT_DRAIN
+    agent.needs.night_drain_multiplier = REST_NIGHT_MULTIPLIER
 
     agent.mutations = [
         locus

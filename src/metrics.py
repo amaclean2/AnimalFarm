@@ -2,9 +2,9 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from config import MAX_HUNGER, MAX_WATER, BIRTH_RATE_WINDOW, LOGS_DIR
+from config import BIRTH_RATE_WINDOW, LOGS_DIR
 
-WELL_FED_THRESHOLD = int(MAX_HUNGER * 0.75)
+WELL_FED_THRESHOLD = 0.75
 
 
 class SimulationMetrics:
@@ -185,13 +185,13 @@ class SimulationMetrics:
             },
             "hunger": {
                 "avg_hunger_per_agent": avg_hunger,
-                "avg_hunger_pct": round(avg_hunger / MAX_HUNGER, 3),
+                "avg_hunger_pct": round(avg_hunger, 3),
                 "pct_ticks_well_fed": pct_well_fed,
                 "well_fed_threshold": WELL_FED_THRESHOLD,
             },
             "water": {
                 "avg_water_per_agent": avg_water,
-                "avg_water_pct": round(avg_water / MAX_WATER, 3),
+                "avg_water_pct": round(avg_water, 3),
                 "total_drinks": self._drinks_consumed,
             },
             "food": {

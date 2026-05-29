@@ -12,15 +12,16 @@ import {
   clearWorld,
   setTickCount,
   setTickMs,
+  getTickMs,
   getSelectedAgentId,
   setSelectedAgentId,
   setIsNight,
   setDayNumber,
   setDayPhase,
-  setMaxHunger,
-  setMaxRest,
-  setMaxWater,
   setElevation,
+  setTemperature,
+  setPrecipitation,
+  setClouds,
 } from "./state.js";
 import {
   applyClockState,
@@ -56,6 +57,9 @@ const handleMessage = (rawData) => {
       message.food.forEach(upsertFood);
       message.rivers.forEach(upsertRiver);
       setElevation(message.elevation);
+      setTemperature(message.temperature);
+      setPrecipitation(message.precipitation);
+      setClouds(message.clouds ?? []);
       applyClockState("running");
       break;
 
@@ -74,7 +78,7 @@ const handleMessage = (rawData) => {
 
     case "agent_ate": {
       const agent = upsertAgent(message.agent);
-      food.delete(message.food_id);
+      setTimeout(() => food.delete(message.food_id), getTickMs() || 150);
       if (agent.id === getSelectedAgentId()) updateAgentPanel(agent);
       break;
     }
@@ -124,6 +128,7 @@ const handleMessage = (rawData) => {
       if (message.is_night !== undefined) setIsNight(message.is_night);
       if (message.day_number !== undefined) setDayNumber(message.day_number);
       if (message.day_phase !== undefined) setDayPhase(message.day_phase);
+      if (message.clouds !== undefined) setClouds(message.clouds);
       updateDayNightUI();
       break;
 
@@ -145,10 +150,6 @@ export const fetchState = async () => {
   const worldData = await worldResponse.json();
   const clockData = await clockResponse.json();
   const configData = await configResponse.json();
-  setMaxHunger(configData.max_hunger);
-  setMaxRest(configData.max_rest);
-  setMaxWater(configData.max_water);
-
   agents.clear();
   deadAgents.clear();
   food.clear();
@@ -163,6 +164,9 @@ export const fetchState = async () => {
   worldData.food.forEach(upsertFood);
   worldData.rivers.forEach(upsertRiver);
   setElevation(worldData.elevation);
+  setTemperature(worldData.temperature);
+  setPrecipitation(worldData.precipitation);
+  setClouds(worldData.clouds ?? []);
   (worldData.groups ?? []).forEach((group) => groups.set(group.id, group));
 
   setTickCount(clockData.tick_count);

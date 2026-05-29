@@ -8,10 +8,23 @@ from pathlib import Path
 # ── World generation ──────────────────────────────────────────────────────────
 
 AGENT_COUNT = 8
-NUM_SPRINGS = 2
+NUM_SPRINGS = 3
 NUM_FOOD_CLUSTERS = 4
 CLUSTER_SIGMA = 6.0
-FOOD_PEAK_PROBABILITY = 0.1
+FOOD_PEAK_PROBABILITY = 0.2
+
+CLIMATE_COARSE_SCALE = 50.0
+CLIMATE_MEDIUM_SCALE = 20.0
+TEMP_ELEVATION_COUPLING = 0.4
+
+CLOUD_COUNT = 5
+CLOUD_RADIUS_MIN = 8.0
+CLOUD_RADIUS_MAX = 20.0
+CLOUD_LIFESPAN_MIN = 150
+CLOUD_LIFESPAN_MAX = 400
+CLOUD_SPEED_MAX = 0.3
+CLOUD_PRECIP_STRENGTH = 0.7
+CLOUD_TEMP_REDUCTION = 0.25
 
 # ── Agent lifecycle ───────────────────────────────────────────────────────────
 
@@ -22,21 +35,22 @@ VISION_RANGE = 20
 
 # ── Needs & metabolism ────────────────────────────────────────────────────────
 
-MAX_HUNGER = 100
-MAX_WATER = 100
-MAX_REST = 200
-ADULT_DRAIN = 1  # hunger drained per tick (adult)
-INFANT_DRAIN = 2  # hunger drained per tick (infant, scales with age toward ADULT_DRAIN)
-EAT_RESTORE = 20  # hunger restored per meal (~4 meals to go 0 → full)
+HUNGER_BASE_DRAIN = 0.01  # adult hunger drain per tick
+HUNGER_INFANT_MULTIPLIER = 2.0  # infant drains this × base (scales to 1× at maturity)
+HUNGER_RIVER_MULTIPLIER = 2.0  # river tile multiplies hunger drain
+HUNGER_LONE_MULTIPLIER = 2.0  # being alone multiplies hunger drain
+EAT_RESTORE = 0.20  # hunger restored per meal (~5 meals to go 0 → full)
 
-WATER_DRAIN = 1
-DRINK_RESTORE = 20  # water restored per drink (~4 drinks to go 0 → full)
-WATER_DRAIN_MULTIPLIER = 2  # extra hunger penalty when standing on a river tile
+WATER_BASE_DRAIN = 0.01
+DRINK_RESTORE = 0.20  # water restored per drink (~5 drinks to go 0 → full)
 
-REST_DRAIN = 1
-REST_RESTORE_MIN = 1  # restore per tick on worst rest tile
-REST_RESTORE_MAX = 5  # restore per tick on best rest tile
-NIGHT_DRAIN = 3  # rest drained per tick while awake at night
+REST_BASE_DRAIN = 0.005
+REST_NIGHT_MULTIPLIER = 3.0  # drain multiplier while awake at night
+REST_COLD_MULTIPLIER = (
+    2.0  # drain multiplier at minimum temperature (scales to 1× at max temp)
+)
+REST_RESTORE_MIN = 0.005  # restore per tick on worst rest tile
+REST_RESTORE_MAX = 0.025  # restore per tick on best rest tile
 
 # ── Rest spot quality ─────────────────────────────────────────────────────────
 
@@ -47,15 +61,11 @@ REST_SPOT_SEEK_THRESHOLD = 0.35  # min visible quality worth navigating toward
 MEMORY_REST_BONUS = (
     0.15  # quality bonus for a remembered rest tile, decays with distance
 )
-REST_SAFETY_BUFFER_FRAC = (
-    0.05  # fraction of MAX_REST to keep in reserve when planning travel
-)
-
-LONE_HUNGER_PENALTY = 1  # extra hunger drain per tick when not in a group
+REST_SAFETY_BUFFER_FRAC = 0.05  # rest fraction to keep in reserve when planning travel
 
 # ── Reproduction ──────────────────────────────────────────────────────────────
 
-REPRODUCTION_HUNGER_THRESHOLD = 0.87  # fraction of MAX_HUNGER required to mate
+REPRODUCTION_HUNGER_THRESHOLD = 0.87  # hunger [0,1] required to mate
 REPRODUCTION_CHANCE = 0.05
 REPRODUCTION_RANGE = 3  # manhattan distance within which mating can occur
 
@@ -93,7 +103,9 @@ FOOD_SCORE_FLOOR = 0.01
 RIVER_GRAVITY_SCALE = 8.0  # exp scale for elevation-based river flow
 
 HILL_COST_SCALE = 3.0  # extra A* cost per unit of elevation gained
-HILL_ENERGY_SCALE = 20  # extra hunger drained per unit of elevation gained while moving
+HILL_ENERGY_MULTIPLIER = (
+    20.0  # uphill hunger drain = elev_gain × this × HUNGER_BASE_DRAIN
+)
 
 # ── Genetics & mutations ──────────────────────────────────────────────────────
 

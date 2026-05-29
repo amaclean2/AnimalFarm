@@ -8,9 +8,18 @@ from fastapi.staticfiles import StaticFiles
 
 from clock import clock
 from connections import _connections, broadcast
-from routers import agents, clock as clock_router, food, game, logs, stats, world
+from routers import (
+    agents,
+    clock as clock_router,
+    food,
+    game,
+    logs,
+    stats,
+    world as world_router,
+)
 from routers import tests_router
 from simulation import simulation
+from world import world
 
 STATIC = Path(__file__).parent.parent / "static"
 
@@ -23,6 +32,7 @@ async def _on_tick(tick_count: int) -> None:
 
         traceback.print_exc()
         raise
+    world.tick_clouds()
     for event_name, data in events:
         await broadcast(event_name, data)
     await broadcast(
@@ -32,6 +42,7 @@ async def _on_tick(tick_count: int) -> None:
             "is_night": clock.is_night,
             "day_number": clock.day_number,
             "day_phase": clock.day_phase,
+            "clouds": world.clouds_to_list(),
         },
     )
     if not list(simulation.world.all_living_agents()):
@@ -57,7 +68,7 @@ app.add_middleware(
 
 app.include_router(agents.router)
 app.include_router(food.router)
-app.include_router(world.router)
+app.include_router(world_router.router)
 app.include_router(clock_router.router)
 app.include_router(game.router)
 app.include_router(stats.router)

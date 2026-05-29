@@ -124,8 +124,8 @@ btnNextAgent.addEventListener('click', jumpToNextAgent)
 document.getElementById('hint').textContent = window.matchMedia(
   '(pointer: coarse)'
 ).matches
-  ? 'Drag to scroll'
-  : 'WASD / ↑↓←→ to scroll'
+  ? 'Drag to scroll · Pinch to zoom'
+  : 'WASD / ↑↓←→ to scroll · C: climate overlay'
 
 window.addEventListener('resize', resize)
 requestAnimationFrame(resize)

@@ -193,12 +193,17 @@ class Simulation:
             )
 
             tile_quality = self.world.rest_quality_at(agent.x, agent.y)
-            agent.tick_needs(is_night, tile_quality=tile_quality)
+            temperature = self.world.temperature_at(agent.x, agent.y)
+            agent.tick_needs(
+                is_night, tile_quality=tile_quality, temperature=temperature
+            )
 
-            drain_rate = cfg.NIGHT_DRAIN if is_night else cfg.REST_DRAIN
-            safety = round(cfg.MAX_REST * cfg.REST_SAFETY_BUFFER_FRAC)
-            usable = max(0, agent.needs.rest - safety)
-            max_travel = max(1, usable // drain_rate)
+            drain_rate = cfg.REST_BASE_DRAIN * (
+                cfg.REST_NIGHT_MULTIPLIER if is_night else 1.0
+            )
+            safety = cfg.REST_SAFETY_BUFFER_FRAC
+            usable = max(0.0, agent.needs.rest - safety)
+            max_travel = max(1, int(usable / drain_rate))
 
             visible_rest = self.world.best_rest_in_vision(agent, vision, sleeping_tiles)
             memory_rest = agent.memory.query("rest", tick_count, familiarity=True)
@@ -227,7 +232,7 @@ class Simulation:
 
             was_sleeping = agent.is_sleeping
 
-            if was_sleeping and agent.needs.rest < cfg.MAX_REST:
+            if was_sleeping and agent.needs.rest < 1.0:
                 agent.needs.is_sleeping = True
                 agent.move_to(agent.x, agent.y)
             else:
