@@ -5,7 +5,6 @@ import {
   food,
   rivers,
   groups,
-  homes,
   upsertAgent,
   upsertFood,
   upsertRiver,
@@ -21,6 +20,7 @@ import {
   setMaxHunger,
   setMaxRest,
   setMaxWater,
+  setElevation,
 } from "./state.js";
 import {
   applyClockState,
@@ -55,6 +55,7 @@ const handleMessage = (rawData) => {
       message.agents.forEach((agentData) => upsertAgent(agentData));
       message.food.forEach(upsertFood);
       message.rivers.forEach(upsertRiver);
+      setElevation(message.elevation);
       applyClockState("running");
       break;
 
@@ -102,14 +103,6 @@ const handleMessage = (rawData) => {
 
     case "food_removed":
       food.delete(message.food.id);
-      break;
-
-    case "home_built":
-      homes.set(message.home.id, message.home);
-      break;
-
-    case "home_removed":
-      homes.delete(message.home.id);
       break;
 
     case "food_drowned":
@@ -169,8 +162,8 @@ export const fetchState = async () => {
   );
   worldData.food.forEach(upsertFood);
   worldData.rivers.forEach(upsertRiver);
+  setElevation(worldData.elevation);
   (worldData.groups ?? []).forEach((group) => groups.set(group.id, group));
-  (worldData.homes ?? []).forEach((home) => homes.set(home.id, home));
 
   setTickCount(clockData.tick_count);
   tickEl.textContent = clockData.tick_count || "—";

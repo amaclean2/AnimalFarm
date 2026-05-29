@@ -7,11 +7,11 @@ from pathlib import Path
 
 # ── World generation ──────────────────────────────────────────────────────────
 
-AGENT_COUNT = 20
+AGENT_COUNT = 8
 NUM_SPRINGS = 2
 NUM_FOOD_CLUSTERS = 4
 CLUSTER_SIGMA = 6.0
-FOOD_PEAK_PROBABILITY = 0.5
+FOOD_PEAK_PROBABILITY = 0.1
 
 # ── Agent lifecycle ───────────────────────────────────────────────────────────
 
@@ -24,9 +24,7 @@ VISION_RANGE = 20
 
 MAX_HUNGER = 100
 MAX_WATER = 100
-MAX_REST = 100
-MAX_WARMTH = 1.0
-
+MAX_REST = 200
 ADULT_DRAIN = 1  # hunger drained per tick (adult)
 INFANT_DRAIN = 2  # hunger drained per tick (infant, scales with age toward ADULT_DRAIN)
 EAT_RESTORE = 20  # hunger restored per meal (~4 meals to go 0 → full)
@@ -36,16 +34,24 @@ DRINK_RESTORE = 20  # water restored per drink (~4 drinks to go 0 → full)
 WATER_DRAIN_MULTIPLIER = 2  # extra hunger penalty when standing on a river tile
 
 REST_DRAIN = 1
-REST_RESTORE = 3
-REST_THRESHOLD = 40  # rest level at which agent falls asleep
+REST_RESTORE_MIN = 1  # restore per tick on worst rest tile
+REST_RESTORE_MAX = 5  # restore per tick on best rest tile
 NIGHT_DRAIN = 3  # rest drained per tick while awake at night
 
-WARMTH_EXPOSED_DRAIN = 0.05
-WARMTH_SHELTERED_DRAIN = 0.01
-WARMTH_RESTORE = 0.03
+# ── Rest spot quality ─────────────────────────────────────────────────────────
+
+REST_NOISE_WEIGHT = 0.5  # contribution from spatial noise
+REST_RIVER_WEIGHT = 0.3  # bonus for proximity to river
+REST_FOOD_WEIGHT = 0.2  # bonus for proximity to food
+REST_SPOT_SEEK_THRESHOLD = 0.35  # min visible quality worth navigating toward
+MEMORY_REST_BONUS = (
+    0.15  # quality bonus for a remembered rest tile, decays with distance
+)
+REST_SAFETY_BUFFER_FRAC = (
+    0.05  # fraction of MAX_REST to keep in reserve when planning travel
+)
 
 LONE_HUNGER_PENALTY = 1  # extra hunger drain per tick when not in a group
-SLEEP_HUNGER_OVERRIDE = 60  # agent wakes if hunger drops below this even while sleeping
 
 # ── Reproduction ──────────────────────────────────────────────────────────────
 
@@ -84,9 +90,10 @@ FOOD_WATER_WEIGHT = 2.0
 FOOD_CLUSTER_WEIGHT = 1.0
 FOOD_SCORE_FLOOR = 0.01
 
-RIVER_DOWN_WEIGHT = 3.0
-RIVER_LATERAL_WEIGHT = 2.0
-RIVER_UP_WEIGHT = 0.5
+RIVER_GRAVITY_SCALE = 8.0  # exp scale for elevation-based river flow
+
+HILL_COST_SCALE = 3.0  # extra A* cost per unit of elevation gained
+HILL_ENERGY_SCALE = 20  # extra hunger drained per unit of elevation gained while moving
 
 # ── Genetics & mutations ──────────────────────────────────────────────────────
 
@@ -101,6 +108,7 @@ SEED_HOMOZYGOUS_RATE = 0.05
 MEMORY_CAP = 10
 CONFIDENCE_PRUNE = 0.05
 DECAY_RATE = 0.001
+FAMILIARITY_WEIGHT = 0.2  # log-tapered bonus per revisit to a rest tile
 
 # ── Metrics & logging ─────────────────────────────────────────────────────────
 

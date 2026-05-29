@@ -1,9 +1,16 @@
+import { WORLD_WIDTH } from "./constants.js";
+
 export const agents = new Map();
 export const deadAgents = new Map();
 export const food = new Map();
 export const rivers = new Map();
 export const groups = new Map();
-export const homes = new Map();
+
+let _elevation = [];
+export const setElevation = (data) => {
+  _elevation = data ?? [];
+};
+export const getElevationAt = (x, y) => _elevation[y * WORLD_WIDTH + x] ?? 0.5;
 
 let _clockState = "stopped";
 let _tickCount = 0;
@@ -58,14 +65,23 @@ export const setMaxWater = (v) => {
   _maxWater = v;
 };
 
+export const snapAgentsToGrid = () => {
+  for (const agent of agents.values()) {
+    agent.posQueue = [];
+    agent.arc = null;
+    agent.displayX = agent.x;
+    agent.displayY = agent.y;
+  }
+};
+
 export const clearWorld = () => {
   agents.clear();
   deadAgents.clear();
   food.clear();
   rivers.clear();
   groups.clear();
-  homes.clear();
   setSelectedAgentId(null);
+  _elevation = [];
 };
 
 export const upsertAgent = (agentData) => {
@@ -84,6 +100,11 @@ export const upsertAgent = (agentData) => {
 
     if (existing.x !== agentData.x || existing.y !== agentData.y) {
       agentData.posQueue.push({ x: agentData.x, y: agentData.y });
+      if (agentData.posQueue.length > 3) {
+        const snap = agentData.posQueue.shift();
+        agentData.displayX = snap.x;
+        agentData.displayY = snap.y;
+      }
     }
   }
 

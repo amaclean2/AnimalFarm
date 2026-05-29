@@ -9,6 +9,7 @@ from agent.needs import NeedState
 import config as _cfg
 from config import (
     MAX_HUNGER,
+    MAX_REST,
     REPRODUCTION_HUNGER_THRESHOLD,
     VISION_RANGE,
     CONTINUATION_BONUS,
@@ -20,7 +21,6 @@ _NEEDS = [
     "hunger",
     "thirst",
     "rest",
-    "warmth",
     "safety",
     "social",
     "reproduction",
@@ -32,7 +32,6 @@ _RELEVANCE: dict[str, dict[str, float]] = {
         "hunger": 1.0,
         "thirst": 0.0,
         "rest": 0.0,
-        "warmth": 0.0,
         "safety": 0.0,
         "social": 0.1,
         "reproduction": 0.0,
@@ -42,7 +41,6 @@ _RELEVANCE: dict[str, dict[str, float]] = {
         "hunger": 0.0,
         "thirst": 1.0,
         "rest": 0.0,
-        "warmth": 0.0,
         "safety": 0.0,
         "social": 0.0,
         "reproduction": 0.0,
@@ -52,37 +50,15 @@ _RELEVANCE: dict[str, dict[str, float]] = {
         "hunger": 0.1,
         "thirst": 0.1,
         "rest": 1.0,
-        "warmth": 0.3,
         "safety": 0.0,
         "social": 0.0,
         "reproduction": 0.0,
         "curiosity": 0.0,
     },
-    "seek_shelter": {
-        "hunger": 0.0,
-        "thirst": 0.0,
-        "rest": 0.5,
-        "warmth": 1.0,
-        "safety": 0.3,
-        "social": 0.2,
-        "reproduction": 0.0,
-        "curiosity": 0.0,
-    },
-    "find_shelter": {
-        "hunger": 0.0,
-        "thirst": 0.0,
-        "rest": 0.2,
-        "warmth": 0.8,
-        "safety": 0.1,
-        "social": 0.0,
-        "reproduction": 0.0,
-        "curiosity": 0.1,
-    },
     "flee": {
         "hunger": 0.0,
         "thirst": 0.0,
         "rest": 0.0,
-        "warmth": 0.0,
         "safety": 1.0,
         "social": 0.3,
         "reproduction": -0.2,
@@ -92,7 +68,6 @@ _RELEVANCE: dict[str, dict[str, float]] = {
         "hunger": 0.0,
         "thirst": 0.0,
         "rest": 0.0,
-        "warmth": 0.0,
         "safety": -0.5,
         "social": 0.2,
         "reproduction": 1.0,
@@ -102,7 +77,6 @@ _RELEVANCE: dict[str, dict[str, float]] = {
         "hunger": 0.2,
         "thirst": 0.2,
         "rest": -0.3,
-        "warmth": -0.3,
         "safety": -0.5,
         "social": -0.2,
         "reproduction": 0.1,
@@ -125,7 +99,6 @@ class Agent(BaseModel):
     mutations: list[str] = Field(default_factory=list)
 
     group_id: UUID | None = None
-    home_pos: tuple[int, int] | None = None
     carried_food: Food | None = None
 
     direction: tuple[int, int] | None = None
@@ -194,20 +167,25 @@ class Agent(BaseModel):
 
     # --- need delegation ---
 
-    def should_rest(self) -> bool:
-        return self.needs.should_rest()
-
-    def tick_needs(self, is_night: bool, on_exposed_tile: bool = False) -> None:
-        self.needs.tick(is_night, on_exposed_tile, self.age, self.is_adult)
+    def tick_needs(self, is_night: bool, tile_quality: float = 1.0) -> None:
+        self.needs.tick(is_night, tile_quality)
 
     def apply_hunger_drain(self, is_river: bool, is_lone: bool) -> None:
         self.needs.apply_hunger_drain(self.age, self.is_adult, is_river, is_lone)
+
+    def drain_uphill(self, elev_gain: float) -> None:
+        self.needs.drain_uphill(elev_gain)
 
     # --- memory delegation ---
 
     def update_food_memory(self, food_targets: list[Food], tick: int) -> None:
         for food in food_targets:
             self.memory.observe((food.x, food.y), "food", float(food.value), tick)
+
+    def update_rest_memory(
+        self, pos: tuple[int, int], quality: float, tick: int
+    ) -> None:
+        self.memory.observe(pos, "rest", quality, tick)
 
     # --- reproduction ---
 
@@ -225,7 +203,6 @@ class Agent(BaseModel):
             "hunger": self.needs.hunger,
             "water": self.needs.water,
             "rest": self.needs.rest,
-            "warmth": round(self.needs.warmth, 2),
         }
 
     def choose_action(
@@ -234,14 +211,14 @@ class Agent(BaseModel):
         mate_pos: tuple[int, int] | None,
         explore_goal: tuple[int, int],
         tick: int,
+        rest_target: tuple[int, int] | None = None,
     ) -> Task:
-        urgencies = self.needs.urgency_vector(is_night)
+        urgencies = self.needs.urgency_vector()
         food_target = self.memory.query("food", tick, urgency=urgencies["hunger"])
         water_target = self.memory.query("water", tick, urgency=urgencies["thirst"])
-        shelter_target = self.memory.query("shelter", tick, urgency=urgencies["warmth"])
 
         candidates = self._feasible_actions(
-            food_target, water_target, shelter_target, mate_pos
+            food_target, water_target, mate_pos, rest_target
         )
 
         best_action, best_score = "explore", float("-inf")
@@ -249,6 +226,7 @@ class Agent(BaseModel):
         for action in candidates:
             score = sum(urgencies[need] * _RELEVANCE[action][need] for need in _NEEDS)
             is_continuation = bool(self.active_task and self.active_task.name == action)
+
             if is_continuation:
                 score += CONTINUATION_BONUS
             scored.append(
@@ -258,6 +236,7 @@ class Agent(BaseModel):
                     "continuation": is_continuation,
                 }
             )
+
             if score > best_score:
                 best_score, best_action = score, action
 
@@ -277,31 +256,35 @@ class Agent(BaseModel):
             best_action,
             food_target,
             water_target,
-            shelter_target,
             mate_pos,
             explore_goal,
+            rest_target,
         )
 
     def _feasible_actions(
         self,
         food_target: tuple[int, int] | None,
         water_target: tuple[int, int] | None,
-        shelter_target: tuple[int, int] | None,
         mate_pos: tuple[int, int] | None,
+        rest_target: tuple[int, int] | None = None,
     ) -> list[str]:
+        if self.needs.is_sleeping and self.needs.rest < MAX_REST and rest_target:
+            return ["sleep"]
+
         actions = ["explore"]
+
         if food_target:
             actions.append("seek_food")
+
         if water_target:
             actions.append("drink")
-        if self.home_pos:
+
+        if rest_target and self.needs.rest < MAX_REST:
             actions.append("sleep")
-        if shelter_target:
-            actions.append("seek_shelter")
-        else:
-            actions.append("find_shelter")
+
         if mate_pos:
             actions.append("mate")
+
         return actions
 
     def _resolve_task(
@@ -309,16 +292,14 @@ class Agent(BaseModel):
         action: str,
         food: tuple[int, int] | None,
         water: tuple[int, int] | None,
-        shelter: tuple[int, int] | None,
         mate: tuple[int, int] | None,
         explore: tuple[int, int],
+        rest: tuple[int, int] | None = None,
     ) -> Task:
         goal: tuple[int, int] = {
             "seek_food": food,
             "drink": water,
-            "sleep": self.home_pos,
-            "seek_shelter": shelter,
-            "find_shelter": explore,
+            "sleep": rest,
             "mate": mate,
             "explore": explore,
         }.get(action, explore)

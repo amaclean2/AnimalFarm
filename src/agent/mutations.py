@@ -2,24 +2,25 @@ import random
 
 import config as _cfg
 from config import (
-    VISION_RANGE, MAX_REST, REST_THRESHOLD, NIGHT_DRAIN,
-    VISION_BOOST, VISION_PENALTY,
-    SEED_HETEROZYGOUS_RATE, SEED_HOMOZYGOUS_RATE,
+    VISION_RANGE,
+    NIGHT_DRAIN,
+    VISION_BOOST,
+    VISION_PENALTY,
+    SEED_HETEROZYGOUS_RATE,
+    SEED_HOMOZYGOUS_RATE,
 )
 
 _MUTATIONS: dict[str, dict] = {
-    "keen_sight":      {"vision_range": VISION_RANGE + VISION_BOOST},
-    "poor_sight":      {"vision_range": max(1, VISION_RANGE - VISION_PENALTY)},
+    "keen_sight": {"vision_range": VISION_RANGE + VISION_BOOST},
+    "poor_sight": {"vision_range": max(1, VISION_RANGE - VISION_PENALTY)},
     "slow_metabolism": {"metabolism": 0.6},
     "fast_metabolism": {"metabolism": 1.5},
-    "light_sleeper":   {"rest_threshold": max(0, REST_THRESHOLD - 15)},
-    "heavy_sleeper":   {"rest_threshold": min(MAX_REST, REST_THRESHOLD + 25)},
-    "night_owl":       {"night_drain": 1},
+    "night_owl": {"night_drain": 1},
 }
 
 MUTATION_NAMES = list(_MUTATIONS.keys())
 
-_NEEDS_ATTRS = {"metabolism", "rest_threshold", "night_drain"}
+_NEEDS_ATTRS = {"metabolism", "night_drain"}
 
 
 def seed_genotype(agent) -> None:
@@ -45,11 +46,11 @@ def _alleles_passed(count: int) -> int:
 def apply_expressed_mutations(agent) -> None:
     agent.vision_range = VISION_RANGE
     agent.needs.metabolism = 1.0
-    agent.needs.rest_threshold = REST_THRESHOLD
     agent.needs.night_drain = NIGHT_DRAIN
 
     agent.mutations = [
-        locus for locus, count in sorted(agent.genotype.items())
+        locus
+        for locus, count in sorted(agent.genotype.items())
         if count == 2 and locus in _MUTATIONS
     ]
     for locus in agent.mutations:
@@ -63,10 +64,9 @@ def apply_expressed_mutations(agent) -> None:
 def inherit_or_mutate(agent, parent_a, parent_b) -> None:
     genotype: dict[str, int] = {}
     for locus in set(parent_a.genotype) | set(parent_b.genotype):
-        child_alleles = (
-            _alleles_passed(parent_a.genotype.get(locus, 0))
-            + _alleles_passed(parent_b.genotype.get(locus, 0))
-        )
+        child_alleles = _alleles_passed(
+            parent_a.genotype.get(locus, 0)
+        ) + _alleles_passed(parent_b.genotype.get(locus, 0))
         if child_alleles > 0:
             genotype[locus] = child_alleles
 

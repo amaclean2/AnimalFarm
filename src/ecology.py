@@ -1,11 +1,15 @@
+import math
 import random
 
 from config import (
     BASE_COHESION,
     FOOD_REGROW_TICKS,
-    FOOD_SPREAD_SIGMA, FOOD_SPREAD_CANDIDATES,
-    FOOD_WATER_WEIGHT, FOOD_CLUSTER_WEIGHT, FOOD_SCORE_FLOOR,
-    RIVER_DOWN_WEIGHT, RIVER_LATERAL_WEIGHT, RIVER_UP_WEIGHT,
+    FOOD_SPREAD_SIGMA,
+    FOOD_SPREAD_CANDIDATES,
+    FOOD_WATER_WEIGHT,
+    FOOD_CLUSTER_WEIGHT,
+    FOOD_SCORE_FLOOR,
+    RIVER_GRAVITY_SCALE,
 )
 from food import Food
 from world import World
@@ -31,10 +35,15 @@ def form_groups(world: World, events: list[tuple[str, dict]]) -> None:
             if dist <= group.cohesion_radius:
                 group.member_ids.add(agent.id)
                 agent.group_id = group.id
-                events.append(("agent_joined_group", {
-                    "agent_id": str(agent.id),
-                    "group_id": str(group.id),
-                }))
+                events.append(
+                    (
+                        "agent_joined_group",
+                        {
+                            "agent_id": str(agent.id),
+                            "group_id": str(group.id),
+                        },
+                    )
+                )
                 break
 
         if agent.group_id is not None:
@@ -47,10 +56,15 @@ def form_groups(world: World, events: list[tuple[str, dict]]) -> None:
             if dist <= BASE_COHESION:
                 group = world.add_group({agent.id, other.id})
                 group.update_center([agent, other])
-                events.append(("group_formed", {
-                    "group_id": str(group.id),
-                    "member_ids": [str(agent.id), str(other.id)],
-                }))
+                events.append(
+                    (
+                        "group_formed",
+                        {
+                            "group_id": str(group.id),
+                            "member_ids": [str(agent.id), str(other.id)],
+                        },
+                    )
+                )
                 break
 
 
@@ -108,36 +122,51 @@ def flow_rivers(world: World, events: list[tuple[str, dict]]) -> None:
 
         candidates: list[tuple[int, int]] = []
         weights: list[float] = []
-        
+
+        elev_head = world.elevation_at(hx, hy)
+
         for dx, dy in [(0, 1), (-1, 0), (1, 0), (0, -1)]:
             nx, ny = hx + dx, hy + dy
             if not world.in_bounds(nx, ny):
                 continue
             if world.is_river_tile(nx, ny):
                 continue
-            if dy == 1:
-                w = RIVER_DOWN_WEIGHT
-            elif dy == -1:
-                w = RIVER_UP_WEIGHT
-            else:
-                w = RIVER_LATERAL_WEIGHT
+            delta = elev_head - world.elevation_at(nx, ny)
+            w = max(0.05, math.exp(delta * RIVER_GRAVITY_SCALE))
             candidates.append((nx, ny))
             weights.append(w)
 
         if not candidates:
             river.complete = True
-            events.append(("river_completed", {"river_id": str(river.id), "reached_bottom": False}))
+            events.append(
+                (
+                    "river_completed",
+                    {"river_id": str(river.id), "reached_bottom": False},
+                )
+            )
             continue
 
         chosen = random.choices(candidates, weights=weights, k=1)[0]
         world.extend_river(river, chosen[0], chosen[1])
         food = world.consume_food_at(chosen[0], chosen[1])
         if food:
-            events.append(("food_drowned", {"food_id": str(food.id), "x": chosen[0], "y": chosen[1]}))
-        events.append(("river_tile_added", {
-            "river_id": str(river.id),
-            "x": chosen[0],
-            "y": chosen[1],
-        }))
+            events.append(
+                (
+                    "food_drowned",
+                    {"food_id": str(food.id), "x": chosen[0], "y": chosen[1]},
+                )
+            )
+        events.append(
+            (
+                "river_tile_added",
+                {
+                    "river_id": str(river.id),
+                    "x": chosen[0],
+                    "y": chosen[1],
+                },
+            )
+        )
         if river.complete:
-            events.append(("river_completed", {"river_id": str(river.id), "reached_bottom": True}))
+            events.append(
+                ("river_completed", {"river_id": str(river.id), "reached_bottom": True})
+            )

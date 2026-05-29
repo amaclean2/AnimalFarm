@@ -72,3 +72,22 @@ window.addEventListener("keydown", (event) => {
 });
 
 window.addEventListener("keyup", (event) => pressedKeys.delete(event.key));
+
+const LINE_HEIGHT = 16;
+
+canvas.addEventListener(
+  "wheel",
+  (event) => {
+    event.preventDefault();
+    const scale =
+      event.deltaMode === 1
+        ? LINE_HEIGHT
+        : event.deltaMode === 2
+          ? canvas.height
+          : 1;
+    camera.x += event.deltaX * scale;
+    camera.y += event.deltaY * scale;
+    clampCamera();
+  },
+  { passive: false },
+);

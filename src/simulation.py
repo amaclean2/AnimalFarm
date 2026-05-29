@@ -62,12 +62,14 @@ class Simulation:
         is_night: bool,
         occupied: set[tuple[int, int]] | None = None,
         tick_count: int = 0,
+        rest_target: tuple[int, int] | None = None,
     ) -> tuple[int, int]:
         top_task = agent.choose_action(
             is_night,
             self._find_mate_target(agent, vision),
             agent.explore_goal(self.world.width, self.world.height, tick_count),
             tick_count,
+            rest_target=rest_target,
         )
 
         if top_task.name == "seek_food" and food_targets:
@@ -125,6 +127,9 @@ class Simulation:
             # each tick so deadlocked pairs don't mirror each other indefinitely
             if (agent.id.int + tick_count) % 2 == 0:
                 return (agent.x, agent.y)
+        elif top_task.name == "sleep":
+            # No path to sleep target (unreachable) — stay put rather than wandering
+            return (agent.x, agent.y)
 
         return best_move(agent, candidates, food_targets, group, social_target)
 
@@ -153,10 +158,13 @@ class Simulation:
         occupied: set[tuple[int, int]] = {
             (a.x, a.y) for a in self.world.all_living_agents()
         }
+        sleeping_tiles: set[tuple[int, int]] = {
+            (a.x, a.y) for a in self.world.all_living_agents() if a.is_sleeping
+        }
 
         dead = []
-        for agent in sorted(self.world.all_living_agents(), key=lambda a: a.hunger):
-            moves = self.world.valid_moves(agent.x, agent.y, own_home=agent.home_pos)
+        for agent in self.world.all_living_agents():
+            moves = self.world.valid_moves(agent.x, agent.y)
             if not moves:
                 continue
 
@@ -184,28 +192,82 @@ class Simulation:
                 else lone_social_target(self.world, agent, agent_vision[agent.id])
             )
 
-            agent.tick_needs(is_night)
+            tile_quality = self.world.rest_quality_at(agent.x, agent.y)
+            agent.tick_needs(is_night, tile_quality=tile_quality)
+
+            drain_rate = cfg.NIGHT_DRAIN if is_night else cfg.REST_DRAIN
+            safety = round(cfg.MAX_REST * cfg.REST_SAFETY_BUFFER_FRAC)
+            usable = max(0, agent.needs.rest - safety)
+            max_travel = max(1, usable // drain_rate)
+
+            visible_rest = self.world.best_rest_in_vision(agent, vision, sleeping_tiles)
+            memory_rest = agent.memory.query("rest", tick_count, familiarity=True)
+
+            if memory_rest is not None:
+                mem_dist = abs(agent.x - memory_rest[0]) + abs(agent.y - memory_rest[1])
+                if mem_dist > max_travel or memory_rest in sleeping_tiles:
+                    memory_rest = None
+
+            rest_target: tuple[int, int] | None = None
+
+            if visible_rest and memory_rest:
+                visible_q = self.world.rest_quality_at(*visible_rest)
+                mem_q = self.world.rest_quality_at(*memory_rest)
+                mem_dist = abs(agent.x - memory_rest[0]) + abs(agent.y - memory_rest[1])
+                decay = max(0.0, 1.0 - mem_dist / max(max_travel, 1))
+                mem_score = mem_q + cfg.MEMORY_REST_BONUS * decay
+                rest_target = memory_rest if mem_score >= visible_q else visible_rest
+            elif visible_rest:
+                rest_target = visible_rest
+            elif memory_rest:
+                rest_target = memory_rest
 
             old_pos = (agent.x, agent.y)
-            if agent.should_rest():
+            at_rest_target = rest_target is None or (agent.x, agent.y) == rest_target
+
+            was_sleeping = agent.is_sleeping
+
+            if was_sleeping and agent.needs.rest < cfg.MAX_REST:
+                agent.needs.is_sleeping = True
                 agent.move_to(agent.x, agent.y)
             else:
-                agent.move_to(
-                    *self._next_pos(
-                        agent,
-                        candidates,
-                        food_targets,
-                        group,
-                        social_target,
-                        agent_vision[agent.id],
-                        is_night,
-                        occupied,
-                        tick_count,
-                    )
+                agent.needs.is_sleeping = False
+                new_pos = self._next_pos(
+                    agent,
+                    candidates,
+                    food_targets,
+                    group,
+                    social_target,
+                    agent_vision[agent.id],
+                    is_night,
+                    occupied,
+                    tick_count,
+                    rest_target=rest_target,
                 )
+
+                if (
+                    agent.active_task
+                    and agent.active_task.name == "sleep"
+                    and at_rest_target
+                ):
+                    agent.needs.is_sleeping = True
+                    agent.move_to(agent.x, agent.y)
+                else:
+                    agent.move_to(*new_pos)
+
+            if was_sleeping and not agent.is_sleeping:
+                agent.update_rest_memory((agent.x, agent.y), tile_quality, tick_count)
             occupied.discard(old_pos)
             occupied.add((agent.x, agent.y))
             agent.age += 1
+
+            new_pos = (agent.x, agent.y)
+            if new_pos != old_pos and not agent.is_sleeping:
+                elev_gain = self.world.elevation_at(*new_pos) - self.world.elevation_at(
+                    *old_pos
+                )
+                if elev_gain > 0:
+                    agent.drain_uphill(elev_gain)
 
             ate_this_tick = False
             food = self.world.consume_food_at(agent.x, agent.y)
@@ -213,21 +275,6 @@ class Simulation:
                 self._regrow_queue[tick_count + FOOD_REGROW_TICKS].append(
                     (agent.x, agent.y)
                 )
-                if agent.home_pos is None:
-                    pending_regrow = {
-                        pos
-                        for positions in self._regrow_queue.values()
-                        for pos in positions
-                    }
-                    home_tile = self.world.find_home_tile(
-                        food.x, food.y, pending_regrow
-                    )
-                    if home_tile:
-                        home = self.world.place_home(agent.id, *home_tile)
-                        agent.home_pos = home_tile
-                        events.append(
-                            ("home_built", {"home": home.model_dump(mode="json")})
-                        )
                 agent.eat()
                 ate_this_tick = True
                 events.append(
@@ -252,7 +299,7 @@ class Simulation:
 
             events.append(("agent_moved", {"agent": agent.model_dump(mode="json")}))
 
-            if agent.hunger <= 0 or agent.age >= cfg.MAX_AGE:
+            if agent.hunger <= 0 or agent.needs.rest <= 0 or agent.age >= cfg.MAX_AGE:
                 dead.append(agent.id)
 
         for agent_id in dead:

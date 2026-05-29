@@ -16,7 +16,13 @@ STATIC = Path(__file__).parent.parent / "static"
 
 
 async def _on_tick(tick_count: int) -> None:
-    events = simulation.on_tick(tick_count)
+    try:
+        events = simulation.on_tick(tick_count)
+    except Exception:
+        import traceback
+
+        traceback.print_exc()
+        raise
     for event_name, data in events:
         await broadcast(event_name, data)
     await broadcast(

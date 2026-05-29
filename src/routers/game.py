@@ -69,6 +69,8 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
 
     all_cells = [(x, y) for x in range(world.width) for y in range(world.height)]
 
+    world.generate_elevation(seed=random.randint(0, 999999))
+
     spring_xs = random.sample(range(world.width), cfg.NUM_SPRINGS)
     for x in spring_xs:
         world.add_spring(x, 0)
@@ -86,6 +88,9 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
             food = world.place_food(x, y)
             food_placed.append(food.model_dump(mode="json"))
 
+    food_positions = [(f["x"], f["y"]) for f in food_placed]
+    world.generate_rest_quality(food_positions, seed=random.randint(0, 999999))
+
     agents_born = []
     for x, y in random.sample(all_cells, cfg.AGENT_COUNT):
         agent = world.add_agent(x, y, age=cfg.MATURITY_AGE)
@@ -99,6 +104,11 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
 
     await broadcast(
         "game_started",
-        {"agents": agents_born, "food": food_placed, "rivers": rivers_formed},
+        {
+            "agents": agents_born,
+            "food": food_placed,
+            "rivers": rivers_formed,
+            "elevation": world.all_elevation(),
+        },
     )
     clock.start()

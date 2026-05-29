@@ -1,5 +1,6 @@
 import heapq
 
+from config import HILL_COST_SCALE
 from world import World
 
 
@@ -12,9 +13,9 @@ def astar(
     if start == goal:
         return []
 
-    open_heap: list[tuple[int, tuple[int, int]]] = [(0, start)]
+    open_heap: list[tuple[float, tuple[int, int]]] = [(0.0, start)]
     came_from: dict[tuple[int, int], tuple[int, int]] = {}
-    g_score: dict[tuple[int, int], int] = {start: 0}
+    g_score: dict[tuple[int, int], float] = {start: 0.0}
 
     while open_heap:
         _, current = heapq.heappop(open_heap)
@@ -31,12 +32,12 @@ def astar(
             if not world.in_bounds(nx, ny):
                 continue
             neighbor = (nx, ny)
-            if world.is_home_tile(nx, ny) and neighbor != goal:
-                continue
             if blocked and neighbor in blocked and neighbor != goal:
                 continue
-            tentative_g = g_score[current] + 1
-            if tentative_g < g_score.get(neighbor, 10**9):
+            elev_diff = world.elevation_at(nx, ny) - world.elevation_at(cx, cy)
+            move_cost = 1.0 + max(0.0, elev_diff) * HILL_COST_SCALE
+            tentative_g = g_score[current] + move_cost
+            if tentative_g < g_score.get(neighbor, 1e9):
                 came_from[neighbor] = current
                 g_score[neighbor] = tentative_g
                 h = abs(nx - goal[0]) + abs(ny - goal[1])

@@ -3,13 +3,43 @@ from collections import deque
 from uuid import UUID
 
 from agent import Agent
-from config import LOGS_DIR
+from config import (
+    LOGS_DIR,
+    REST_NOISE_WEIGHT,
+    REST_RIVER_WEIGHT,
+    REST_FOOD_WEIGHT,
+    REST_SPOT_SEEK_THRESHOLD,
+)
 from food import Food
 from group import Group
-from home import Home
 from river import River
 
 _DIRECTIONS = [(0, 0), (0, 1), (0, -1), (1, 0), (-1, 0)]
+
+
+def _value_noise_2d(x: int, y: int, scale: float, seed: int) -> float:
+    def corner_val(xi: int, yi: int) -> float:
+        n = xi * 1619 + yi * 31337 + seed * 1013904223
+        n = (n ^ (n >> 8)) & 0xFFFFFFFF
+        return (n & 0xFFFF) / 0xFFFF
+
+    fx = x / scale
+    fy = y / scale
+    xi, yi = int(fx), int(fy)
+    tx = fx - xi
+    ty = fy - yi
+    tx = tx * tx * (3 - 2 * tx)
+    ty = ty * ty * (3 - 2 * ty)
+    v00 = corner_val(xi, yi)
+    v10 = corner_val(xi + 1, yi)
+    v01 = corner_val(xi, yi + 1)
+    v11 = corner_val(xi + 1, yi + 1)
+    return (
+        v00 * (1 - tx) * (1 - ty)
+        + v10 * tx * (1 - ty)
+        + v01 * (1 - tx) * ty
+        + v11 * tx * ty
+    )
 
 
 def _write_decision_log(agent: Agent) -> None:
@@ -38,20 +68,15 @@ class World:
         self._groups: dict[UUID, Group] = {}
         self._rivers: dict[UUID, River] = {}
         self._river_tiles: set[tuple[int, int]] = set()
-        self._homes: dict[UUID, Home] = {}
-        self._home_tiles: set[tuple[int, int]] = set()
+        self._rest_quality: dict[tuple[int, int], float] = {}
+        self._elevation: list[float] = []
 
     def in_bounds(self, x: int, y: int) -> bool:
         return 0 <= x < self.width and 0 <= y < self.height
 
-    def valid_moves(
-        self, x: int, y: int, own_home: tuple[int, int] | None = None
-    ) -> list[tuple[int, int]]:
+    def valid_moves(self, x: int, y: int) -> list[tuple[int, int]]:
         return [
-            (x + dx, y + dy)
-            for dx, dy in _DIRECTIONS
-            if self.in_bounds(x + dx, y + dy)
-            and (not self.is_home_tile(x + dx, y + dy) or (x + dx, y + dy) == own_home)
+            (x + dx, y + dy) for dx, dy in _DIRECTIONS if self.in_bounds(x + dx, y + dy)
         ]
 
     def food_in_vision(
@@ -153,50 +178,89 @@ class World:
             return self._groups.get(agent.group_id)
         return None
 
-    # --- Homes ---
+    # --- Rest quality ---
 
-    def place_home(self, agent_id: UUID, x: int, y: int) -> Home:
-        home = Home(x=x, y=y, agent_id=agent_id)
-        self._homes[agent_id] = home
-        self._home_tiles.add((x, y))
-        return home
+    def generate_rest_quality(
+        self, food_positions: list[tuple[int, int]], seed: int
+    ) -> None:
+        river_dist = self._distance_transform(self._river_tiles)
+        food_dist = (
+            self._distance_transform(set(food_positions)) if food_positions else {}
+        )
 
-    def remove_home(self, agent_id: UUID) -> Home | None:
-        home = self._homes.pop(agent_id, None)
-        if home:
-            self._home_tiles.discard((home.x, home.y))
-        return home
+        max_river_dist = max(river_dist.values(), default=1)
+        max_food_dist = max(food_dist.values(), default=1)
 
-    def all_homes(self) -> list[Home]:
-        return list(self._homes.values())
+        for x in range(self.width):
+            for y in range(self.height):
+                if self.is_river_tile(x, y):
+                    self._rest_quality[(x, y)] = 0.0
+                    continue
 
-    def is_home_tile(self, x: int, y: int) -> bool:
-        return (x, y) in self._home_tiles
+                coarse = _value_noise_2d(x, y, scale=20.0, seed=seed)
+                fine = _value_noise_2d(x, y, scale=8.0, seed=seed + 999)
+                noise = 0.7 * coarse + 0.3 * fine
 
-    def find_home_tile(
+                rd = river_dist.get((x, y), max_river_dist)
+                river_bonus = 1.0 - rd / max_river_dist
+
+                fd = food_dist.get((x, y), max_food_dist)
+                food_bonus = 1.0 - fd / max_food_dist
+
+                quality = (
+                    REST_NOISE_WEIGHT * noise
+                    + REST_RIVER_WEIGHT * river_bonus
+                    + REST_FOOD_WEIGHT * food_bonus
+                )
+                self._rest_quality[(x, y)] = max(0.0, min(1.0, quality))
+
+    def rest_quality_at(self, x: int, y: int) -> float:
+        return self._rest_quality.get((x, y), 0.0)
+
+    def best_rest_in_vision(
         self,
-        near_x: int,
-        near_y: int,
-        pending_regrow: set[tuple[int, int]] | None = None,
+        agent: Agent,
+        vision: float,
+        sleeping_tiles: set[tuple[int, int]] | None = None,
     ) -> tuple[int, int] | None:
-        visited: set[tuple[int, int]] = set()
-        queue: deque[tuple[int, int]] = deque([(near_x, near_y)])
-        visited.add((near_x, near_y))
+        best_pos: tuple[int, int] | None = None
+        best_quality = REST_SPOT_SEEK_THRESHOLD
+
+        for dx in range(-int(vision), int(vision) + 1):
+            for dy in range(-int(vision), int(vision) + 1):
+                if abs(dx) + abs(dy) > vision:
+                    continue
+                tx, ty = agent.x + dx, agent.y + dy
+                if not self.in_bounds(tx, ty):
+                    continue
+                if self.is_river_tile(tx, ty):
+                    continue
+                if sleeping_tiles and (tx, ty) in sleeping_tiles:
+                    continue
+                quality = self._rest_quality.get((tx, ty), 0.0)
+
+                if quality > best_quality:
+                    best_quality = quality
+                    best_pos = (tx, ty)
+
+        return best_pos
+
+    def _distance_transform(
+        self, sources: set[tuple[int, int]]
+    ) -> dict[tuple[int, int], int]:
+        dist: dict[tuple[int, int], int] = {}
+        queue: deque[tuple[int, int]] = deque()
+        for pos in sources:
+            dist[pos] = 0
+            queue.append(pos)
         while queue:
             x, y = queue.popleft()
-            if (
-                not self.is_river_tile(x, y)
-                and not self.is_home_tile(x, y)
-                and self.get_food_at(x, y) is None
-                and (pending_regrow is None or (x, y) not in pending_regrow)
-            ):
-                return (x, y)
             for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
                 nx, ny = x + dx, y + dy
-                if self.in_bounds(nx, ny) and (nx, ny) not in visited:
-                    visited.add((nx, ny))
+                if self.in_bounds(nx, ny) and (nx, ny) not in dist:
+                    dist[(nx, ny)] = dist[(x, y)] + 1
                     queue.append((nx, ny))
-        return None
+        return dist
 
     def update_group_centers(self) -> None:
         for group in self._groups.values():
@@ -270,11 +334,25 @@ class World:
                     if group.size < 2:
                         self.disband_group(group.id)
                         events.append(("group_disbanded", {"group_id": str(group.id)}))
-            home = self.remove_home(agent_id)
-            if home:
-                events.append(("home_removed", {"home": home.model_dump(mode="json")}))
             events.append(("agent_died", {"agent": agent.model_dump(mode="json")}))
         return events
+
+    def generate_elevation(self, seed: int) -> None:
+        self._elevation = []
+        for y in range(self.height):
+            for x in range(self.width):
+                coarse = _value_noise_2d(x, y, scale=40.0, seed=seed)
+                medium = _value_noise_2d(x, y, scale=15.0, seed=seed + 1)
+                fine = _value_noise_2d(x, y, scale=6.0, seed=seed + 2)
+                self._elevation.append(0.4 * coarse + 0.3 * medium + 0.3 * fine)
+
+    def elevation_at(self, x: int, y: int) -> float:
+        if not self._elevation:
+            return 0.0
+        return self._elevation[y * self.width + x]
+
+    def all_elevation(self) -> list[float]:
+        return self._elevation
 
     def reset(self) -> None:
         self._agents.clear()
@@ -282,8 +360,8 @@ class World:
         self._groups.clear()
         self._rivers.clear()
         self._river_tiles.clear()
-        self._homes.clear()
-        self._home_tiles.clear()
+        self._rest_quality.clear()
+        self._elevation.clear()
 
     # --- Rivers ---
 

@@ -15,6 +15,7 @@ import {
   getMaxHunger,
   getMaxRest,
   getMaxWater,
+  snapAgentsToGrid,
 } from "./state.js";
 
 const agentCountEl = document.getElementById("agent-count");
@@ -116,6 +117,7 @@ const btnNextAgent = document.getElementById("btn-next-agent");
 
 export const applyClockState = (state) => {
   setClockState(state);
+  if (state === "paused" || state === "stopped") snapAgentsToGrid();
   btnStart.disabled = state !== "stopped";
   btnPause.disabled = state === "stopped";
   btnStop.disabled = state === "stopped";

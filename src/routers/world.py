@@ -16,9 +16,6 @@ async def get_world() -> dict:
             {"river_id": str(r.id), "tiles": list(r.tiles), "complete": r.complete}
             for r in world.all_rivers()
         ],
-        "groups": [
-            {"id": str(g.id)}
-            for g in world.all_groups()
-        ],
-        "homes": [h.model_dump(mode="json") for h in world.all_homes()],
+        "groups": [{"id": str(g.id)} for g in world.all_groups()],
+        "elevation": world.all_elevation(),
     }
