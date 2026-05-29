@@ -1,3 +1,5 @@
+import config as cfg
+
 from fastapi import APIRouter, HTTPException
 
 from clock import clock
@@ -19,6 +21,7 @@ async def stop_clock() -> None:
         raise HTTPException(status_code=400, detail="Clock is already stopped")
     clock.stop()
     simulation.save_log()
+    cfg.reset_runtime()
     simulation.reset()
 
 

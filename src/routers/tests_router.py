@@ -27,7 +27,7 @@ def _run_one(tc, index: int) -> dict:
     sim._game_logged = True
 
     agent = world.add_agent(tc.agent_x, tc.agent_y)
-    agent.health = tc.agent_health
+    agent.needs.hunger = tc.agent_hunger
     agent.age = tc.agent_age
     agent.is_adult = tc.agent_is_adult
     for x, y in tc.food:
@@ -59,7 +59,12 @@ async def list_tests() -> dict:
         tcs = _load_test_cases()
         return {
             "tests": [
-                {"index": i, "name": tc.name, "description": tc.description, "max_ticks": tc.max_ticks}
+                {
+                    "index": i,
+                    "name": tc.name,
+                    "description": tc.description,
+                    "max_ticks": tc.max_ticks,
+                }
                 for i, tc in enumerate(tcs)
             ],
             "error": None,
@@ -76,7 +81,12 @@ async def run_all() -> dict:
         raise HTTPException(status_code=500, detail=str(exc))
     results = [_run_one(tc, i) for i, tc in enumerate(tcs)]
     passed = sum(1 for r in results if r["passed"])
-    return {"results": results, "total": len(results), "passed": passed, "failed": len(results) - passed}
+    return {
+        "results": results,
+        "total": len(results),
+        "passed": passed,
+        "failed": len(results) - passed,
+    }
 
 
 @router.post("/run/{index}")

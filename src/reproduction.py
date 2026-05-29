@@ -1,13 +1,14 @@
 import random
 from uuid import UUID
 
-from mutations import inherit_or_mutate
+import config as _cfg
+from agent.mutations import inherit_or_mutate
+from config import (
+    REPRODUCTION_HUNGER_THRESHOLD,
+    REPRODUCTION_RANGE,
+    MAX_HUNGER,
+)
 from world import World
-
-REPRODUCTION_CHANCE = 0.05
-REPRODUCTION_HEALTH_THRESHOLD = 0.87
-REPRODUCTION_RANGE = 3
-REPRODUCTION_MATURITY_AGE = 30
 
 
 def reproduce(world: World, events: list[tuple[str, dict]], tick_count: int) -> int:
@@ -19,17 +20,18 @@ def reproduce(world: World, events: list[tuple[str, dict]], tick_count: int) -> 
     for i, agent in enumerate(agents):
         if agent.id in paired or not agent.is_eligible_to_mate():
             continue
-        for other in agents[i + 1:]:
+        for other in agents[i + 1 :]:
             if other.id in paired or not other.is_eligible_to_mate():
                 continue
             if abs(agent.x - other.x) + abs(agent.y - other.y) > REPRODUCTION_RANGE:
                 continue
             eligible_pairs += 1
-            if random.random() >= REPRODUCTION_CHANCE:
+            if random.random() >= _cfg.REPRODUCTION_CHANCE:
                 continue
 
             spawn_candidates = [
-                pos for pos in world.valid_moves(agent.x, agent.y)
+                pos
+                for pos in world.valid_moves(agent.x, agent.y)
                 if not world.is_river_tile(*pos)
             ]
             if not spawn_candidates:

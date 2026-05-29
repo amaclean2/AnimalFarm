@@ -1,13 +1,32 @@
+import json
 from collections import deque
 from uuid import UUID
 
 from agent import Agent
+from config import LOGS_DIR
 from food import Food
 from group import Group
 from home import Home
 from river import River
 
 _DIRECTIONS = [(0, 0), (0, 1), (0, -1), (1, 0), (-1, 0)]
+
+
+def _write_decision_log(agent: Agent) -> None:
+    LOGS_DIR.mkdir(exist_ok=True)
+    short_id = str(agent.id)[:8]
+    path = LOGS_DIR / f"agent_{short_id}_decisions.json"
+    data = {
+        "agent_id": str(agent.id),
+        "mutations": agent.mutations,
+        "age_at_death": agent.age,
+        "birth_tick": agent.birth_tick,
+        "total_decisions": len(agent.decision_log),
+        "decisions": agent.decision_log,
+    }
+
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
 
 
 class World:
@@ -25,7 +44,9 @@ class World:
     def in_bounds(self, x: int, y: int) -> bool:
         return 0 <= x < self.width and 0 <= y < self.height
 
-    def valid_moves(self, x: int, y: int, own_home: tuple[int, int] | None = None) -> list[tuple[int, int]]:
+    def valid_moves(
+        self, x: int, y: int, own_home: tuple[int, int] | None = None
+    ) -> list[tuple[int, int]]:
         return [
             (x + dx, y + dy)
             for dx, dy in _DIRECTIONS
@@ -33,16 +54,20 @@ class World:
             and (not self.is_home_tile(x + dx, y + dy) or (x + dx, y + dy) == own_home)
         ]
 
-    def food_in_vision(self, agent: Agent, vision_range: float | None = None) -> list[Food]:
+    def food_in_vision(
+        self, agent: Agent, vision_range: float | None = None
+    ) -> list[Food]:
         r = vision_range if vision_range is not None else agent.vision_range
         return [
-            f for f in self._food.values()
+            f
+            for f in self._food.values()
             if abs(f.x - agent.x) + abs(f.y - agent.y) <= r
         ]
 
     def agents_in_range(self, agent: Agent, range_val: float) -> list[Agent]:
         return [
-            a for a in self._agents.values()
+            a
+            for a in self._agents.values()
             if a.alive
             and a.id != agent.id
             and abs(a.x - agent.x) + abs(a.y - agent.y) <= range_val
@@ -148,7 +173,12 @@ class World:
     def is_home_tile(self, x: int, y: int) -> bool:
         return (x, y) in self._home_tiles
 
-    def find_home_tile(self, near_x: int, near_y: int, pending_regrow: set[tuple[int, int]] | None = None) -> tuple[int, int] | None:
+    def find_home_tile(
+        self,
+        near_x: int,
+        near_y: int,
+        pending_regrow: set[tuple[int, int]] | None = None,
+    ) -> tuple[int, int] | None:
         visited: set[tuple[int, int]] = set()
         queue: deque[tuple[int, int]] = deque([(near_x, near_y)])
         visited.add((near_x, near_y))
@@ -170,7 +200,9 @@ class World:
 
     def update_group_centers(self) -> None:
         for group in self._groups.values():
-            members = [self._agents[mid] for mid in group.member_ids if mid in self._agents]
+            members = [
+                self._agents[mid] for mid in group.member_ids if mid in self._agents
+            ]
             group.update_center(members)
 
     def compute_food_visibility(self, agent_vision: dict) -> dict:
@@ -192,7 +224,8 @@ class World:
         for agent in self.all_living_agents():
             group = self.group_for_agent(agent.id)
             agent_food[agent.id] = (
-                group_shared_food[group.id] if group
+                group_shared_food[group.id]
+                if group
                 else self.food_in_vision(agent, agent_vision[agent.id])
             )
         return agent_food
@@ -209,10 +242,15 @@ class World:
                 if dist > group.attraction_range:
                     group.member_ids.discard(mid)
                     member.group_id = None
-                    events.append(("agent_left_group", {
-                        "agent_id": str(mid),
-                        "group_id": str(group.id),
-                    }))
+                    events.append(
+                        (
+                            "agent_left_group",
+                            {
+                                "agent_id": str(mid),
+                                "group_id": str(group.id),
+                            },
+                        )
+                    )
             if group.size < 2:
                 self.disband_group(group.id)
                 events.append(("group_disbanded", {"group_id": str(group.id)}))
@@ -222,6 +260,8 @@ class World:
         events: list[tuple[str, dict]] = []
         agent = self._agents.get(agent_id)
         if agent:
+            if agent.decision_log:
+                _write_decision_log(agent)
             agent.die()
             if agent.group_id:
                 group = self.group_for_agent(agent_id)
@@ -266,6 +306,9 @@ class World:
 
     def all_rivers(self) -> list[River]:
         return list(self._rivers.values())
+
+    def all_river_tiles(self) -> set[tuple[int, int]]:
+        return self._river_tiles
 
 
 world = World(width=100, height=100)

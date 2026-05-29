@@ -1,51 +1,281 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Animal Farm</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles/main.css">
-</head>
-<body>
-  <canvas id="game"></canvas>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Animal Farm</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles/main.css" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
 
-  <div id="panel">
-    <h2>ANIMAL FARM</h2>
-    <div id="stats-grid">
-      <div class="stat">Tick: <span id="tick">—</span></div>
-      <div class="stat">Day: <span id="day-number">1</span> <span id="day-icon">☀️</span></div>
-      <div class="stat">Agents: <span id="agent-count">0</span></div>
-      <div class="stat">Food: <span id="food-count">0</span></div>
-      <div class="stat">Groups: <span id="group-count">0</span></div>
-    </div>
-    <div class="controls">
-      <button id="btn-start">▶ Start Game</button>
-      <button id="btn-pause" disabled>⏸ Pause</button>
-      <button id="btn-stop"  disabled>⏹ Stop Clock</button>
-      <button id="btn-stats">📊 Stats</button>
-    </div>
-    <div id="status">Connecting…</div>
-  </div>
-
-  <div id="modal-overlay">
-    <div id="modal">
-      <div id="modal-header">
-        <h3>GAME STATS</h3>
-        <button id="modal-close">✕</button>
+    <div id="panel">
+      <h2>ANIMAL FARM</h2>
+      <div id="stats-grid">
+        <div class="stat">Tick: <span id="tick">—</span></div>
+        <div class="stat">
+          Day: <span id="day-number">1</span> <span id="day-icon">☀️</span>
+        </div>
+        <div class="stat">Agents: <span id="agent-count">0</span></div>
+        <div class="stat">Food: <span id="food-count">0</span></div>
+        <div class="stat">Groups: <span id="group-count">0</span></div>
       </div>
-      <div id="modal-body"></div>
+      <div class="controls">
+        <button id="btn-start">▶ Start Game</button>
+        <button id="btn-pause" disabled>⏸ Pause</button>
+        <button id="btn-stop" disabled>⏹ Stop Clock</button>
+        <button id="btn-next-agent" disabled>⟳ Next Agent</button>
+        <button id="btn-stats">📊 Stats</button>
+        <button id="btn-fullscreen">⛶ Fullscreen</button>
+      </div>
+      <div id="status">Connecting…</div>
     </div>
-  </div>
 
-  <div id="agent-panel" class="hidden">
-    <div id="agent-panel-title">Selected Agent</div>
-    <div id="agent-panel-body"></div>
-  </div>
+    <div id="config-overlay">
+      <div id="config-modal">
+        <div id="config-header">
+          <h3>CONFIGURE SIMULATION</h3>
+          <button id="config-close">✕</button>
+        </div>
+        <div id="config-body">
+          <div class="config-section">
+            <h4>Population</h4>
+            <div class="config-row">
+              <label for="cfg-agent-count">Starting Agents</label>
+              <div class="config-controls">
+                <input
+                  type="range"
+                  id="cfg-agent-count-range"
+                  min="1"
+                  max="100"
+                  step="1"
+                />
+                <input
+                  type="number"
+                  id="cfg-agent-count"
+                  min="1"
+                  max="100"
+                  step="1"
+                />
+              </div>
+              <span
+                class="info-icon"
+                data-tooltip="Number of agents placed on the world when the simulation starts"
+                >i</span
+              >
+            </div>
+          </div>
 
-  <div id="hint"></div>
+          <div class="config-section">
+            <h4>World</h4>
+            <div class="config-row">
+              <label for="cfg-num-springs">Rivers</label>
+              <div class="config-controls">
+                <input
+                  type="range"
+                  id="cfg-num-springs-range"
+                  min="1"
+                  max="8"
+                  step="1"
+                />
+                <input
+                  type="number"
+                  id="cfg-num-springs"
+                  min="1"
+                  max="8"
+                  step="1"
+                />
+              </div>
+              <span
+                class="info-icon"
+                data-tooltip="Number of river paths flowing across the world"
+                >i</span
+              >
+            </div>
+            <div class="config-row">
+              <label for="cfg-num-food-clusters">Food Clusters</label>
+              <div class="config-controls">
+                <input
+                  type="range"
+                  id="cfg-num-food-clusters-range"
+                  min="1"
+                  max="12"
+                  step="1"
+                />
+                <input
+                  type="number"
+                  id="cfg-num-food-clusters"
+                  min="1"
+                  max="12"
+                  step="1"
+                />
+              </div>
+              <span
+                class="info-icon"
+                data-tooltip="Number of regions where food items spawn each tick"
+                >i</span
+              >
+            </div>
+            <div class="config-row">
+              <label for="cfg-food-peak-probability">Food Abundance</label>
+              <div class="config-controls">
+                <input
+                  type="range"
+                  id="cfg-food-peak-probability-range"
+                  min="0.05"
+                  max="1"
+                  step="0.05"
+                />
+                <input
+                  type="number"
+                  id="cfg-food-peak-probability"
+                  min="0.05"
+                  max="1"
+                  step="0.05"
+                />
+              </div>
+              <span
+                class="info-icon"
+                data-tooltip="How dense food spawning is at cluster centres (0 = sparse, 1 = dense)"
+                >i</span
+              >
+            </div>
+          </div>
 
-  <script type="module" src="/scripts/main.js"></script>
-</body>
+          <div class="config-section">
+            <h4>Lifecycle</h4>
+            <div class="config-row">
+              <label for="cfg-max-age">Max Lifespan</label>
+              <div class="config-controls">
+                <input
+                  type="range"
+                  id="cfg-max-age-range"
+                  min="100"
+                  max="2000"
+                  step="50"
+                />
+                <input
+                  type="number"
+                  id="cfg-max-age"
+                  min="100"
+                  max="2000"
+                  step="50"
+                />
+              </div>
+              <span
+                class="info-icon"
+                data-tooltip="Maximum ticks an agent can live before dying of old age"
+                >i</span
+              >
+            </div>
+            <div class="config-row">
+              <label for="cfg-adult-drain">Hunger Drain / Tick</label>
+              <div class="config-controls">
+                <input
+                  type="range"
+                  id="cfg-adult-drain-range"
+                  min="1"
+                  max="10"
+                  step="1"
+                />
+                <input
+                  type="number"
+                  id="cfg-adult-drain"
+                  min="1"
+                  max="10"
+                  step="1"
+                />
+              </div>
+              <span
+                class="info-icon"
+                data-tooltip="Health points lost per tick; agents must eat food to survive"
+                >i</span
+              >
+            </div>
+          </div>
+
+          <div class="config-section">
+            <h4>Evolution</h4>
+            <div class="config-row">
+              <label for="cfg-reproduction-chance">Reproduction Rate</label>
+              <div class="config-controls">
+                <input
+                  type="range"
+                  id="cfg-reproduction-chance-range"
+                  min="0"
+                  max="0.3"
+                  step="0.01"
+                />
+                <input
+                  type="number"
+                  id="cfg-reproduction-chance"
+                  min="0"
+                  max="0.3"
+                  step="0.01"
+                />
+              </div>
+              <span
+                class="info-icon"
+                data-tooltip="Per-tick probability that a healthy adult will produce an offspring"
+                >i</span
+              >
+            </div>
+            <div class="config-row">
+              <label for="cfg-spontaneous-mutation-rate">Mutation Rate</label>
+              <div class="config-controls">
+                <input
+                  type="range"
+                  id="cfg-spontaneous-mutation-rate-range"
+                  min="0"
+                  max="0.5"
+                  step="0.01"
+                />
+                <input
+                  type="number"
+                  id="cfg-spontaneous-mutation-rate"
+                  min="0"
+                  max="0.5"
+                  step="0.01"
+                />
+              </div>
+              <span
+                class="info-icon"
+                data-tooltip="Probability that a child inherits a spontaneous random mutation"
+                >i</span
+              >
+            </div>
+          </div>
+        </div>
+        <div id="config-footer">
+          <button id="config-reset">Reset Defaults</button>
+          <button id="config-cancel">Cancel</button>
+          <button id="config-start-btn">▶ Start Simulation</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modal-overlay">
+      <div id="modal">
+        <div id="modal-header">
+          <h3>GAME STATS</h3>
+          <button id="modal-close">✕</button>
+        </div>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+
+    <div id="agent-panel" class="hidden">
+      <div id="agent-panel-title">Selected Agent</div>
+      <div id="agent-panel-body"></div>
+    </div>
+
+    <div id="hint"></div>
+
+    <script type="module" src="/scripts/main.js"></script>
+  </body>
 </html>

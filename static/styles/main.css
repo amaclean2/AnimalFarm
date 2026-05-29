@@ -7,7 +7,7 @@
 body {
   background: #111;
   overflow: hidden;
-  font-family: 'Roboto', sans-serif;
+  font-family: "Roboto", sans-serif;
 }
 
 canvas {
@@ -64,7 +64,7 @@ button {
   border-radius: 4px;
   padding: 7px 10px;
   font-size: 12px;
-  font-family: 'Roboto', sans-serif;
+  font-family: "Roboto", sans-serif;
   cursor: pointer;
   text-align: left;
 }
@@ -93,7 +93,9 @@ button:disabled {
   user-select: none;
 }
 
-#agent-panel.hidden { display: none; }
+#agent-panel.hidden {
+  display: none;
+}
 
 #agent-panel-title {
   font-size: 13px;
@@ -113,6 +115,44 @@ button:disabled {
   color: #eee;
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+.agent-bars {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agent-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.agent-bar-label {
+  display: flex;
+  justify-content: space-between;
+  color: #888;
+  font-size: 11px;
+}
+
+.agent-bar-val {
+  color: #ccc;
+  font-variant-numeric: tabular-nums;
+}
+
+.agent-bar-track {
+  height: 5px;
+  background: #222;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.agent-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.1s linear;
 }
 
 #hint {
@@ -298,6 +338,185 @@ button:disabled {
   height: 100%;
   background: #2ecc71;
   border-radius: 3px;
+}
+
+/* ── Config dialog ─────────────────────────────────────────────────────────── */
+
+#config-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+
+#config-overlay.open {
+  display: flex;
+}
+
+#config-modal {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  width: 500px;
+  max-width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#config-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+#config-header h3 {
+  font-size: 13px;
+  color: #888;
+}
+
+#config-body {
+  padding: 18px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+#config-footer {
+  padding: 12px 18px;
+  border-top: 1px solid #2a2a2a;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+#config-reset {
+  margin-right: auto;
+  color: #555;
+  border-color: #2a2a2a;
+}
+
+#config-reset:hover:not(:disabled) {
+  color: #888;
+}
+
+#config-start-btn {
+  background: #0f2a44;
+  color: #4a9eff;
+  border-color: #1a4a7c;
+}
+
+#config-start-btn:hover:not(:disabled) {
+  background: #163860;
+  color: #6ab8ff;
+}
+
+.config-section {
+  margin-bottom: 20px;
+}
+
+.config-section h4 {
+  font-size: 11px;
+  color: #555;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  letter-spacing: 0.05em;
+}
+
+.config-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 7px 0;
+}
+
+.config-row label {
+  font-size: 12px;
+  color: #888;
+  width: 150px;
+  flex-shrink: 0;
+}
+
+.info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #222;
+  border: 1px solid #3a3a3a;
+  color: #555;
+  font-size: 9px;
+  font-style: italic;
+  font-family: Georgia, serif;
+  cursor: default;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.info-icon:hover {
+  border-color: #4a9eff;
+  color: #4a9eff;
+}
+
+#config-tooltip {
+  position: fixed;
+  z-index: 300;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 5px;
+  padding: 8px 11px;
+  font-size: 11px;
+  font-family: "Roboto", sans-serif;
+  color: #aaa;
+  width: 210px;
+  white-space: normal;
+  line-height: 1.5;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+#config-tooltip.visible {
+  opacity: 1;
+}
+
+.config-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.config-controls input[type="range"] {
+  flex: 1;
+  height: 3px;
+  cursor: pointer;
+  accent-color: #4a9eff;
+}
+
+.config-controls input[type="number"] {
+  width: 64px;
+  background: #111;
+  color: #eee;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-family: "Roboto", sans-serif;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.config-controls input[type="number"]:focus {
+  outline: none;
+  border-color: #4a9eff;
 }
 
 @media (max-width: 600px) {

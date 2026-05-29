@@ -1,9 +1,7 @@
-from pathlib import Path
-
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-LOGS_DIR = Path(__file__).parent.parent.parent / "logs"
+from config import LOGS_DIR
 
 router = APIRouter(prefix="/logs", tags=["logs"])
 

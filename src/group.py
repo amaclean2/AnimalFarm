@@ -3,10 +3,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-BASE_GRAVITY = 1.0
-BASE_COHESION = 5.0
-ATTRACTION_MULTIPLIER = 2.0
-VISION_BONUS = 1.5
+from config import BASE_GRAVITY, BASE_COHESION, ATTRACTION_MULTIPLIER, VISION_BONUS
 
 
 class Group(BaseModel):
@@ -14,6 +11,7 @@ class Group(BaseModel):
     member_ids: set[UUID] = Field(default_factory=set)
     center_x: float = 0.0
     center_y: float = 0.0
+
     @property
     def size(self) -> int:
         return len(self.member_ids)

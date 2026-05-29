@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Callable
 
-MAX_HEALTH = 80
+MAX_HUNGER = 80
 BOARD = 10
 
 
@@ -11,7 +11,7 @@ class Scenario:
     description: str = ""
     agent_x: int = BOARD // 2
     agent_y: int = BOARD // 2
-    agent_health: int = MAX_HEALTH
+    agent_hunger: int = MAX_HUNGER
     agent_age: int = 0
     agent_is_adult: bool = False
     food: list[tuple[int, int]] = field(default_factory=list)

@@ -1,29 +1,28 @@
 import random
 
-from agent import Agent, VISION_RANGE, MAX_REST, REST_THRESHOLD_DEFAULT, NIGHT_DRAIN_DEFAULT
-
-SPONTANEOUS_MUTATION_RATE = 0.15
-VISION_BOOST = 8
-VISION_PENALTY = 6
+import config as _cfg
+from config import (
+    VISION_RANGE, MAX_REST, REST_THRESHOLD, NIGHT_DRAIN,
+    VISION_BOOST, VISION_PENALTY,
+    SEED_HETEROZYGOUS_RATE, SEED_HOMOZYGOUS_RATE,
+)
 
 _MUTATIONS: dict[str, dict] = {
-    "keen_sight": {"vision_range": VISION_RANGE + VISION_BOOST},
-    "poor_sight": {"vision_range": max(1, VISION_RANGE - VISION_PENALTY)},
+    "keen_sight":      {"vision_range": VISION_RANGE + VISION_BOOST},
+    "poor_sight":      {"vision_range": max(1, VISION_RANGE - VISION_PENALTY)},
     "slow_metabolism": {"metabolism": 0.6},
     "fast_metabolism": {"metabolism": 1.5},
-    "light_sleeper": {"rest_threshold": max(0, REST_THRESHOLD_DEFAULT - 15)},
-    "heavy_sleeper": {"rest_threshold": min(MAX_REST, REST_THRESHOLD_DEFAULT + 25)},
-    "night_owl": {"night_drain": 1},
+    "light_sleeper":   {"rest_threshold": max(0, REST_THRESHOLD - 15)},
+    "heavy_sleeper":   {"rest_threshold": min(MAX_REST, REST_THRESHOLD + 25)},
+    "night_owl":       {"night_drain": 1},
 }
 
 MUTATION_NAMES = list(_MUTATIONS.keys())
 
-SEED_HETEROZYGOUS_RATE = 0.25
-SEED_HOMOZYGOUS_RATE = 0.05
+_NEEDS_ATTRS = {"metabolism", "rest_threshold", "night_drain"}
 
 
-def seed_genotype(agent: Agent) -> None:
-    """Give a founding agent random alleles to bootstrap the gene pool."""
+def seed_genotype(agent) -> None:
     genotype: dict[str, int] = {}
     for locus in MUTATION_NAMES:
         roll = random.random()
@@ -36,32 +35,32 @@ def seed_genotype(agent: Agent) -> None:
 
 
 def _alleles_passed(count: int) -> int:
-    """Alleles a parent with `count` recessive copies contributes to a child."""
     if count == 0:
         return 0
     if count == 2:
         return 1
-    # Heterozygous carrier (Aa): 50% chance of passing the recessive allele
     return 1 if random.random() < 0.5 else 0
 
 
-def apply_expressed_mutations(agent: Agent) -> None:
-    """Reset phenotype to defaults, then express all homozygous-recessive (aa) loci."""
+def apply_expressed_mutations(agent) -> None:
     agent.vision_range = VISION_RANGE
-    agent.metabolism = 1.0
-    agent.rest_threshold = REST_THRESHOLD_DEFAULT
-    agent.night_drain = NIGHT_DRAIN_DEFAULT
+    agent.needs.metabolism = 1.0
+    agent.needs.rest_threshold = REST_THRESHOLD
+    agent.needs.night_drain = NIGHT_DRAIN
+
     agent.mutations = [
         locus for locus, count in sorted(agent.genotype.items())
         if count == 2 and locus in _MUTATIONS
     ]
     for locus in agent.mutations:
         for attr, value in _MUTATIONS[locus].items():
-            setattr(agent, attr, value)
+            if attr in _NEEDS_ATTRS:
+                setattr(agent.needs, attr, value)
+            else:
+                setattr(agent, attr, value)
 
 
-def inherit_or_mutate(agent: Agent, parent_a: Agent, parent_b: Agent) -> None:
-    """Build child genotype via Mendelian inheritance, then optionally add a spontaneous allele."""
+def inherit_or_mutate(agent, parent_a, parent_b) -> None:
     genotype: dict[str, int] = {}
     for locus in set(parent_a.genotype) | set(parent_b.genotype):
         child_alleles = (
@@ -71,7 +70,7 @@ def inherit_or_mutate(agent: Agent, parent_a: Agent, parent_b: Agent) -> None:
         if child_alleles > 0:
             genotype[locus] = child_alleles
 
-    if random.random() < SPONTANEOUS_MUTATION_RATE:
+    if random.random() < _cfg.SPONTANEOUS_MUTATION_RATE:
         locus = random.choice(MUTATION_NAMES)
         genotype[locus] = min(2, genotype.get(locus, 0) + 1)
 

@@ -12,7 +12,7 @@ class AgentStats(BaseModel):
     id: UUID
     x: int
     y: int
-    health: int
+    hunger: int
     age: int
     group_id: UUID | None
     alive: bool
@@ -48,7 +48,7 @@ async def get_stats() -> WorldStats:
             id=a.id,
             x=a.x,
             y=a.y,
-            health=a.health,
+            hunger=a.hunger,
             age=a.age,
             group_id=a.group_id,
             alive=a.alive,

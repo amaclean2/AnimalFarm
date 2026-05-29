@@ -1,191 +1,380 @@
-import { MAX_HEALTH, UUID_PATTERN, API_BASE, MUTATION_COLORS, MUTATION_PRIORITY } from './constants.js'
-import { agents, food, groups, setClockState, getClockState, getIsNight, getDayNumber } from './state.js'
+import {
+  UUID_PATTERN,
+  API_BASE,
+  MUTATION_COLORS,
+  MUTATION_PRIORITY,
+} from "./constants.js";
+import {
+  agents,
+  food,
+  groups,
+  setClockState,
+  getClockState,
+  getIsNight,
+  getDayNumber,
+  getMaxHunger,
+  getMaxRest,
+  getMaxWater,
+} from "./state.js";
 
-const agentCountEl = document.getElementById('agent-count')
-const foodCountEl = document.getElementById('food-count')
-const groupCountEl = document.getElementById('group-count')
-const statusEl = document.getElementById('status')
-const modalOverlay = document.getElementById('modal-overlay')
-const modalBody = document.getElementById('modal-body')
-const agentPanel = document.getElementById('agent-panel')
-const agentPanelBody = document.getElementById('agent-panel-body')
+const agentCountEl = document.getElementById("agent-count");
+const foodCountEl = document.getElementById("food-count");
+const groupCountEl = document.getElementById("group-count");
+const statusEl = document.getElementById("status");
+const modalOverlay = document.getElementById("modal-overlay");
+const modalBody = document.getElementById("modal-body");
+const agentPanel = document.getElementById("agent-panel");
+const agentPanelBody = document.getElementById("agent-panel-body");
 
-const dayNumberEl = document.getElementById('day-number')
-const dayIconEl = document.getElementById('day-icon')
+const dayNumberEl = document.getElementById("day-number");
+const dayIconEl = document.getElementById("day-icon");
 
-export const btnStart = document.getElementById('btn-start')
-export const btnPause = document.getElementById('btn-pause')
-export const btnStop = document.getElementById('btn-stop')
-export const btnStats = document.getElementById('btn-stats')
+export const btnStart = document.getElementById("btn-start");
+export const btnPause = document.getElementById("btn-pause");
+export const btnStop = document.getElementById("btn-stop");
+export const btnStats = document.getElementById("btn-stats");
 
 const formatValue = (value) =>
-  value == null ? '—' : Array.isArray(value) ? `[${value}]` : String(value)
+  value == null ? "—" : Array.isArray(value) ? `[${value}]` : String(value);
 
 const abbreviateId = (value) => {
-  if (value == null) return '—'
-  const str = String(value)
-  return str.length === 36 ? str.slice(0, 8) : str
-}
+  if (value == null) return "—";
+  const str = String(value);
+  return str.length === 36 ? str.slice(0, 8) : str;
+};
 
 export const abbreviateField = (value) => {
-  if (value == null) return '—'
+  if (value == null) return "—";
   if (Array.isArray(value)) {
     return value
-      .map((item) => (UUID_PATTERN.test(String(item)) ? String(item).slice(0, 8) : item))
-      .join(', ')
+      .map((item) =>
+        UUID_PATTERN.test(String(item)) ? String(item).slice(0, 8) : item,
+      )
+      .join(", ");
   }
-  return UUID_PATTERN.test(String(value)) ? String(value).slice(0, 8) : value
-}
+  return UUID_PATTERN.test(String(value)) ? String(value).slice(0, 8) : value;
+};
+
+const agentBar = (label, value, max, color) => {
+  const pct = Math.min(100, Math.max(0, (value / max) * 100)).toFixed(1);
+  return `
+    <div class="agent-bar-row">
+      <div class="agent-bar-label">${label}<span class="agent-bar-val">${value}/${max}</span></div>
+      <div class="agent-bar-track"><div class="agent-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+    </div>`;
+};
 
 export const updateAgentPanel = (agent) => {
-  if (!agentPanel) return
+  if (!agentPanel) return;
   if (!agent) {
-    agentPanel.classList.add('hidden')
-    return
+    agentPanel.classList.add("hidden");
+    return;
   }
 
-  agentPanel.classList.remove('hidden')
+  agentPanel.classList.remove("hidden");
 
   const rows = [
-    ['id', abbreviateId(agent.id)],
-    ['x / y', `${agent.x}, ${agent.y}`],
-    ['health', `${agent.health} / ${MAX_HEALTH}`],
-    ['age', agent.age],
-    ['vision range', agent.vision_range],
-    ['group id', abbreviateId(agent.group_id)],
-    ['direction', formatValue(agent.direction)],
-    ['last food seen', formatValue(agent.last_food_seen)]
-  ]
+    ["id", abbreviateId(agent.id)],
+    ["x / y", `${agent.x}, ${agent.y}`],
+    ["age", agent.age],
+    ["group", abbreviateId(agent.group_id)],
+    [
+      "action",
+      agent.active_task ? agent.active_task.name.replace(/_/g, " ") : "—",
+    ],
+  ];
 
-  agentPanelBody.innerHTML = rows
-    .map(([label, value]) =>
-      `<div class="agent-row"><span>${label}</span><span class="val">${value}</span></div>`
+  const infoHtml = rows
+    .map(
+      ([label, value]) =>
+        `<div class="agent-row"><span>${label}</span><span class="val">${value}</span></div>`,
     )
-    .join('')
-}
+    .join("");
+
+  const barsHtml =
+    `<div class="agent-bars">` +
+    agentBar("hunger", agent.hunger, getMaxHunger(), "#c0392b") +
+    agentBar("thirst", agent.water, getMaxWater(), "#27a4c0") +
+    agentBar("rest", agent.rest, getMaxRest(), "#5b8dd9") +
+    `</div>`;
+
+  agentPanelBody.innerHTML = infoHtml + barsHtml;
+};
 
 export const updateDayNightUI = () => {
-  if (dayNumberEl) dayNumberEl.textContent = getDayNumber()
-  if (dayIconEl) dayIconEl.textContent = getIsNight() ? '🌙' : '☀️'
-}
+  if (dayNumberEl) dayNumberEl.textContent = getDayNumber();
+  if (dayIconEl) dayIconEl.textContent = getIsNight() ? "🌙" : "☀️";
+};
 
 export const syncCounters = () => {
-  agentCountEl.textContent = agents.size
-  foodCountEl.textContent = food.size
-  groupCountEl.textContent = groups.size
-}
+  agentCountEl.textContent = agents.size;
+  foodCountEl.textContent = food.size;
+  groupCountEl.textContent = groups.size;
+};
+
+const btnNextAgent = document.getElementById("btn-next-agent");
 
 export const applyClockState = (state) => {
-  setClockState(state)
-  btnStart.disabled = state !== 'stopped'
-  btnPause.disabled = state === 'stopped'
-  btnStop.disabled = state === 'stopped'
-  btnPause.textContent = state === 'paused' ? '▶ Resume' : '⏸ Pause'
-  statusEl.textContent = { stopped: 'Stopped', running: 'Running', paused: 'Paused' }[state] ?? state
-}
+  setClockState(state);
+  btnStart.disabled = state !== "stopped";
+  btnPause.disabled = state === "stopped";
+  btnStop.disabled = state === "stopped";
+  if (btnNextAgent) btnNextAgent.disabled = state === "stopped";
+  btnPause.textContent = state === "paused" ? "▶ Resume" : "⏸ Pause";
+  statusEl.textContent =
+    { stopped: "Stopped", running: "Running", paused: "Paused" }[state] ??
+    state;
+};
 
-let pausedForStats = false
+let pausedForStats = false;
 
 export const openStats = async () => {
-  if (getClockState() === 'running') {
-    await fetch(`${API_BASE}/clock/pause`, { method: 'POST' })
-    applyClockState('paused')
-    pausedForStats = true
+  if (getClockState() === "running") {
+    await fetch(`${API_BASE}/clock/pause`, { method: "POST" });
+    applyClockState("paused");
+    pausedForStats = true;
   }
 
-  const data = await fetch(`${API_BASE}/stats`).then((response) => response.json())
+  const data = await fetch(`${API_BASE}/stats`).then((response) =>
+    response.json(),
+  );
 
-  const scalarEntries = Object.entries(data).filter(([, value]) => typeof value !== 'object')
-  const arrayEntries = Object.entries(data).filter(([, value]) => Array.isArray(value))
+  const scalarEntries = Object.entries(data).filter(
+    ([, value]) => typeof value !== "object",
+  );
+  const arrayEntries = Object.entries(data).filter(([, value]) =>
+    Array.isArray(value),
+  );
 
-  let html = ''
+  let html = "";
 
   if (scalarEntries.length) {
-    html += `<div class="stats-summary">`
+    html += `<div class="stats-summary">`;
     html += scalarEntries
-      .map(([key, value]) => `
+      .map(
+        ([key, value]) => `
         <div class="stats-summary-item">
-          <div class="label">${key.replace(/_/g, ' ')}</div>
+          <div class="label">${key.replace(/_/g, " ")}</div>
           <div class="value">${value}</div>
-        </div>`)
-      .join('')
-    html += `</div>`
+        </div>`,
+      )
+      .join("");
+    html += `</div>`;
   }
 
-  const mutationCounts = data.mutation_counts ?? {}
-  const maxMutCount = Math.max(1, ...Object.values(mutationCounts))
-  const allMutations = [...MUTATION_PRIORITY, ...Object.keys(mutationCounts).filter(m => !MUTATION_PRIORITY.includes(m))]
+  const mutationCounts = data.mutation_counts ?? {};
+  const maxMutCount = Math.max(1, ...Object.values(mutationCounts));
+  const allMutations = [
+    ...MUTATION_PRIORITY,
+    ...Object.keys(mutationCounts).filter(
+      (m) => !MUTATION_PRIORITY.includes(m),
+    ),
+  ];
 
-  html += `<div class="stats-section"><h4>Mutations</h4><div class="mutation-histogram">`
-  html += allMutations.map(m => {
-    const count = mutationCounts[m] ?? 0
-    const pct = (count / maxMutCount * 100).toFixed(1)
-    const color = MUTATION_COLORS[m] ?? '#666'
-    return `
+  html += `<div class="stats-section"><h4>Mutations</h4><div class="mutation-histogram">`;
+  html += allMutations
+    .map((m) => {
+      const count = mutationCounts[m] ?? 0;
+      const pct = ((count / maxMutCount) * 100).toFixed(1);
+      const color = MUTATION_COLORS[m] ?? "#666";
+      return `
       <div class="mutation-row">
-        <span class="mut-label">${m.replace(/_/g, ' ')}</span>
+        <span class="mut-label">${m.replace(/_/g, " ")}</span>
         <div class="mut-track"><div class="mut-fill" style="width:${pct}%;background:${color}"></div></div>
         <span class="mut-count">${count}</span>
-      </div>`
-  }).join('')
-  html += `</div></div>`
+      </div>`;
+    })
+    .join("");
+  html += `</div></div>`;
 
   html += arrayEntries
     .map(([key, rows]) => {
       if (!rows.length) {
-        return `<div class="stats-section"><h4>${key.replace(/_/g, ' ')}</h4><span class="stats-empty">None</span></div>`
+        return `<div class="stats-section"><h4>${key.replace(/_/g, " ")}</h4><span class="stats-empty">None</span></div>`;
       }
 
-      const rawColumns = Object.keys(rows[0]).filter((col) => col !== 'x' && col !== 'y')
+      const rawColumns = Object.keys(rows[0]).filter(
+        (col) => col !== "x" && col !== "y",
+      );
       const columns = [
-        ...rawColumns.filter((col) => col === 'id'),
-        ...rawColumns.filter((col) => col === 'age'),
-        ...rawColumns.filter((col) => col !== 'id' && col !== 'age')
-      ]
-      const maxAge = columns.includes('age') ? Math.max(...rows.map((row) => row.age ?? 0)) : 0
+        ...rawColumns.filter((col) => col === "id"),
+        ...rawColumns.filter((col) => col === "age"),
+        ...rawColumns.filter((col) => col !== "id" && col !== "age"),
+      ];
+      const maxAge = columns.includes("age")
+        ? Math.max(...rows.map((row) => row.age ?? 0))
+        : 0;
 
-      const headerRow = columns.map((col) => `<th>${col.replace(/_/g, ' ')}</th>`).join('')
+      const headerRow = columns
+        .map((col) => `<th>${col.replace(/_/g, " ")}</th>`)
+        .join("");
       const dataRows = rows
         .map((row) => {
           const cells = columns
             .map((col) => {
-              if (col === 'age') {
-                const percentage = maxAge > 0 ? ((row.age ?? 0) / maxAge) * 100 : 0
-                return `<td><div class="age-bar"><div style="width:${percentage.toFixed(1)}%"></div></div></td>`
+              if (col === "age") {
+                const percentage =
+                  maxAge > 0 ? ((row.age ?? 0) / maxAge) * 100 : 0;
+                return `<td><div class="age-bar"><div style="width:${percentage.toFixed(1)}%"></div></div></td>`;
               }
-              return `<td>${abbreviateField(row[col])}</td>`
+              return `<td>${abbreviateField(row[col])}</td>`;
             })
-            .join('')
-          return `<tr>${cells}</tr>`
+            .join("");
+          return `<tr>${cells}</tr>`;
         })
-        .join('')
+        .join("");
 
       return `
         <div class="stats-section">
-          <h4>${key.replace(/_/g, ' ')}</h4>
+          <h4>${key.replace(/_/g, " ")}</h4>
           <table class="stats-table">
             <thead><tr>${headerRow}</tr></thead>
             <tbody>${dataRows}</tbody>
           </table>
-        </div>`
+        </div>`;
     })
-    .join('')
+    .join("");
 
-  modalBody.innerHTML = html
-  modalOverlay.classList.add('open')
-}
+  modalBody.innerHTML = html;
+  modalOverlay.classList.add("open");
+};
 
 export const closeStats = () => {
-  modalOverlay.classList.remove('open')
+  modalOverlay.classList.remove("open");
   if (pausedForStats) {
-    fetch(`${API_BASE}/clock/resume`, { method: 'POST' })
-    applyClockState('running')
-    pausedForStats = false
+    fetch(`${API_BASE}/clock/resume`, { method: "POST" });
+    applyClockState("running");
+    pausedForStats = false;
   }
-}
+};
 
-document.getElementById('modal-close').addEventListener('click', closeStats)
-modalOverlay.addEventListener('click', (event) => {
-  if (event.target === modalOverlay) closeStats()
-})
+// ── Config dialog ────────────────────────────────────────────────────────────
 
+const configOverlay = document.getElementById("config-overlay");
+
+const CONFIG_FIELDS = [
+  { key: "agent_count", id: "agent-count", parse: parseInt },
+  { key: "num_springs", id: "num-springs", parse: parseInt },
+  { key: "num_food_clusters", id: "num-food-clusters", parse: parseInt },
+  {
+    key: "food_peak_probability",
+    id: "food-peak-probability",
+    parse: parseFloat,
+  },
+  { key: "max_age", id: "max-age", parse: parseInt },
+  { key: "adult_drain", id: "adult-drain", parse: parseInt },
+  { key: "reproduction_chance", id: "reproduction-chance", parse: parseFloat },
+  {
+    key: "spontaneous_mutation_rate",
+    id: "spontaneous-mutation-rate",
+    parse: parseFloat,
+  },
+];
+
+const syncPair = (rangeEl, numberEl) => {
+  rangeEl.addEventListener("input", () => {
+    numberEl.value = rangeEl.value;
+  });
+  numberEl.addEventListener("input", () => {
+    const v = Math.max(+rangeEl.min, Math.min(+rangeEl.max, +numberEl.value));
+    rangeEl.value = v;
+  });
+};
+
+let configDefaults = {};
+
+const populateDialog = (values) => {
+  CONFIG_FIELDS.forEach(({ id }) => {
+    const key = id.replace(/-/g, "_");
+    const val = values[key] ?? values[id.replace(/-/g, "_")];
+    const numEl = document.getElementById(`cfg-${id}`);
+    const rngEl = document.getElementById(`cfg-${id}-range`);
+    if (numEl && val !== undefined) numEl.value = val;
+    if (rngEl && val !== undefined) rngEl.value = val;
+  });
+};
+
+const initSyncPairs = () => {
+  CONFIG_FIELDS.forEach(({ id }) => {
+    const rng = document.getElementById(`cfg-${id}-range`);
+    const num = document.getElementById(`cfg-${id}`);
+    if (rng && num) syncPair(rng, num);
+  });
+};
+
+initSyncPairs();
+
+export const openConfigDialog = async () => {
+  const defaults = await fetch(`${API_BASE}/config`).then((response) =>
+    response.json(),
+  );
+
+  configDefaults = defaults;
+  populateDialog(defaults);
+  configOverlay.classList.add("open");
+};
+
+export const closeConfigDialog = () => {
+  configOverlay.classList.remove("open");
+};
+
+export const readConfigValues = () => {
+  const result = {};
+  CONFIG_FIELDS.forEach(({ key, id, parse }) => {
+    const el = document.getElementById(`cfg-${id}`);
+    if (el) result[key] = parse(el.value);
+  });
+  return result;
+};
+
+document
+  .getElementById("config-close")
+  .addEventListener("click", closeConfigDialog);
+document
+  .getElementById("config-cancel")
+  .addEventListener("click", closeConfigDialog);
+document
+  .getElementById("config-reset")
+  .addEventListener("click", () => populateDialog(configDefaults));
+configOverlay.addEventListener("click", (event) => {
+  if (event.target === configOverlay) closeConfigDialog();
+});
+
+document.getElementById("modal-close").addEventListener("click", closeStats);
+modalOverlay.addEventListener("click", (event) => {
+  if (event.target === modalOverlay) closeStats();
+});
+
+const btnFullscreen = document.getElementById("btn-fullscreen");
+btnFullscreen.addEventListener("click", () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen();
+  } else {
+    document.exitFullscreen();
+  }
+});
+document.addEventListener("fullscreenchange", () => {
+  btnFullscreen.textContent = document.fullscreenElement
+    ? "⛶ Exit Fullscreen"
+    : "⛶ Fullscreen";
+});
+
+// ── Info icon tooltips ────────────────────────────────────────────────────────
+
+const configTooltip = document.createElement("div");
+configTooltip.id = "config-tooltip";
+document.body.appendChild(configTooltip);
+
+document.querySelectorAll(".info-icon").forEach((icon) => {
+  icon.addEventListener("mouseenter", () => {
+    const rect = icon.getBoundingClientRect();
+    configTooltip.textContent = icon.dataset.tooltip;
+    // right-align tooltip to the icon so it opens leftward inside the dialog
+    configTooltip.style.top = `${rect.bottom + 7}px`;
+    configTooltip.style.left = `${rect.right - 210}px`;
+    configTooltip.classList.add("visible");
+  });
+  icon.addEventListener("mouseleave", () => {
+    configTooltip.classList.remove("visible");
+  });
+});

@@ -1,20 +1,14 @@
 import random
 
+from config import (
+    BASE_COHESION,
+    FOOD_REGROW_TICKS,
+    FOOD_SPREAD_SIGMA, FOOD_SPREAD_CANDIDATES,
+    FOOD_WATER_WEIGHT, FOOD_CLUSTER_WEIGHT, FOOD_SCORE_FLOOR,
+    RIVER_DOWN_WEIGHT, RIVER_LATERAL_WEIGHT, RIVER_UP_WEIGHT,
+)
 from food import Food
-from group import BASE_COHESION
 from world import World
-
-FOOD_REGROW_TICKS = 40
-
-FOOD_SPREAD_SIGMA = 20.0
-FOOD_SPREAD_CANDIDATES = 50
-FOOD_WATER_WEIGHT = 2.0
-FOOD_CLUSTER_WEIGHT = 1.0
-FOOD_SCORE_FLOOR = 0.01
-
-RIVER_DOWN_WEIGHT = 3.0
-RIVER_LATERAL_WEIGHT = 2.0
-RIVER_UP_WEIGHT = 0.5
 
 
 def form_groups(world: World, events: list[tuple[str, dict]]) -> None:
@@ -114,6 +108,7 @@ def flow_rivers(world: World, events: list[tuple[str, dict]]) -> None:
 
         candidates: list[tuple[int, int]] = []
         weights: list[float] = []
+        
         for dx, dy in [(0, 1), (-1, 0), (1, 0), (0, -1)]:
             nx, ny = hx + dx, hy + dy
             if not world.in_bounds(nx, ny):
