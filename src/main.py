@@ -6,8 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+import deps
+from agents import Agents
 from clock import clock
 from connections import _connections, broadcast
+from food import FoodManager
 from routers import (
     agents,
     clock as clock_router,
@@ -17,24 +20,33 @@ from routers import (
     stats,
     world as world_router,
 )
-from routers import tests_router
-from simulation import simulation
-from world import world
+from simulation import Simulation
+from world import World
 
 STATIC = Path(__file__).parent.parent / "static"
+
+_world = World(width=100, height=100)
+_food = FoodManager(_world)
+_agents = Agents(_world.width, _world.height)
+_simulation = Simulation(_world, _food, _agents)
+
+deps.world = _world
+deps.food = _food
+deps.agents = _agents
+deps.simulation = _simulation
 
 
 async def _on_tick(tick_count: int) -> None:
     try:
-        events = simulation.on_tick(tick_count)
+        events = deps.simulation.on_tick(tick_count)
     except Exception:
         import traceback
 
         traceback.print_exc()
         raise
-    world.tick_clouds()
     for event_name, data in events:
         await broadcast(event_name, data)
+
     await broadcast(
         "tick",
         {
@@ -42,10 +54,10 @@ async def _on_tick(tick_count: int) -> None:
             "is_night": clock.is_night,
             "day_number": clock.day_number,
             "day_phase": clock.day_phase,
-            "clouds": world.clouds_to_list(),
+            "clouds": deps.world.weather.clouds_to_list(),
         },
     )
-    if not list(simulation.world.all_living_agents()):
+    if not deps.agents.all_living:
         clock.stop()
         await broadcast("game_over", {"tick": tick_count})
 
@@ -73,7 +85,6 @@ app.include_router(clock_router.router)
 app.include_router(game.router)
 app.include_router(stats.router)
 app.include_router(logs.router)
-app.include_router(tests_router.router)
 
 app.mount("/scripts", StaticFiles(directory=STATIC / "scripts"), name="scripts")
 app.mount("/styles", StaticFiles(directory=STATIC / "styles"), name="styles")
@@ -84,9 +95,9 @@ async def index() -> FileResponse:
     return FileResponse(STATIC / "index.html")
 
 
-@app.get("/tests")
-async def tests_page() -> FileResponse:
-    return FileResponse(STATIC / "tests.html")
+@app.get("/world-viewer")
+async def world_viewer_page() -> FileResponse:
+    return FileResponse(STATIC / "world-viewer.html")
 
 
 @app.get("/health")

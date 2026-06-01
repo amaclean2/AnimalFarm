@@ -1,4 +1,4 @@
-import { API_BASE, WS_URL } from "./constants.js";
+import { API_BASE, WS_URL } from './constants.js'
 import {
   agents,
   deadAgents,
@@ -21,173 +21,173 @@ import {
   setElevation,
   setTemperature,
   setPrecipitation,
-  setClouds,
-} from "./state.js";
+  setClouds
+} from './state.js'
 import {
   applyClockState,
   updateAgentPanel,
   syncCounters,
-  updateDayNightUI,
-} from "./ui.js";
+  updateDayNightUI
+} from './ui.js'
 
-const tickEl = document.getElementById("tick");
-const statusEl = document.getElementById("status");
+const tickEl = document.getElementById('tick')
+const statusEl = document.getElementById('status')
 
 export const post = async (path, body = null) => {
   try {
-    const options = { method: "POST" };
+    const options = { method: 'POST' }
     if (body !== null) {
-      options.headers = { "Content-Type": "application/json" };
-      options.body = JSON.stringify(body);
+      options.headers = { 'Content-Type': 'application/json' }
+      options.body = JSON.stringify(body)
     }
-    await fetch(`${API_BASE}${path}`, options);
+    await fetch(`${API_BASE}${path}`, options)
   } catch (error) {
-    console.error("POST", path, error);
+    console.error('POST', path, error)
   }
-};
+}
 
 const handleMessage = (rawData) => {
-  const message = JSON.parse(rawData);
+  const message = JSON.parse(rawData)
 
   switch (message.event) {
-    case "game_started":
-      clearWorld();
-      updateAgentPanel(null);
-      message.agents.forEach((agentData) => upsertAgent(agentData));
-      message.food.forEach(upsertFood);
-      message.rivers.forEach(upsertRiver);
-      setElevation(message.elevation);
-      setTemperature(message.temperature);
-      setPrecipitation(message.precipitation);
-      setClouds(message.clouds ?? []);
-      applyClockState("running");
-      break;
+    case 'game_started':
+      clearWorld()
+      updateAgentPanel(null)
+      message.agents.forEach((agentData) => upsertAgent(agentData))
+      message.food.forEach(upsertFood)
+      message.rivers.forEach(upsertRiver)
+      setElevation(message.elevation)
+      setTemperature(message.temperature)
+      setPrecipitation(message.precipitation)
+      setClouds(message.clouds ?? [])
+      applyClockState('running')
+      break
 
-    case "agent_created":
-    case "agent_born": {
-      const agent = upsertAgent(message.agent);
-      if (agent.id === getSelectedAgentId()) updateAgentPanel(agent);
-      break;
+    case 'agent_created':
+    case 'agent_born': {
+      const agent = upsertAgent(message.agent)
+      if (agent.id === getSelectedAgentId()) updateAgentPanel(agent)
+      break
     }
 
-    case "agent_moved": {
-      const agent = upsertAgent(message.agent);
-      if (agent.id === getSelectedAgentId()) updateAgentPanel(agent);
-      break;
+    case 'agent_moved': {
+      const agent = upsertAgent(message.agent)
+      if (agent.id === getSelectedAgentId()) updateAgentPanel(agent)
+      break
     }
 
-    case "agent_ate": {
-      const agent = upsertAgent(message.agent);
-      setTimeout(() => food.delete(message.food_id), getTickMs() || 150);
-      if (agent.id === getSelectedAgentId()) updateAgentPanel(agent);
-      break;
+    case 'agent_ate': {
+      const agent = upsertAgent(message.agent)
+      setTimeout(() => food.delete(message.food_id), getTickMs() || 150)
+      if (agent.id === getSelectedAgentId()) updateAgentPanel(agent)
+      break
     }
 
-    case "agent_died":
-      deadAgents.set(message.agent.id, message.agent);
-      agents.delete(message.agent.id);
+    case 'agent_died':
+      deadAgents.set(message.agent.id, message.agent)
+      agents.delete(message.agent.id)
       if (getSelectedAgentId() === message.agent.id) {
-        setSelectedAgentId(null);
-        updateAgentPanel(null);
+        setSelectedAgentId(null)
+        updateAgentPanel(null)
       }
-      break;
+      break
 
-    case "group_formed":
-      groups.set(message.group_id, { id: message.group_id });
-      break;
+    case 'group_formed':
+      groups.set(message.group_id, { id: message.group_id })
+      break
 
-    case "group_disbanded":
-      groups.delete(message.group_id);
-      break;
+    case 'group_disbanded':
+      groups.delete(message.group_id)
+      break
 
-    case "food_placed":
-    case "food_grew":
-      upsertFood(message.food);
-      break;
+    case 'food_placed':
+    case 'food_grew':
+      upsertFood(message.food)
+      break
 
-    case "food_removed":
-      food.delete(message.food.id);
-      break;
+    case 'food_removed':
+      food.delete(message.food.id)
+      break
 
-    case "food_drowned":
-      food.delete(message.food_id);
-      break;
+    case 'food_drowned':
+      food.delete(message.food_id)
+      break
 
-    case "river_tile_added":
-      addRiverTile(message.river_id, message.x, message.y);
-      break;
+    case 'river_tile_added':
+      addRiverTile(message.river_id, message.x, message.y)
+      break
 
-    case "river_completed":
+    case 'river_completed':
       if (rivers.has(message.river_id))
-        rivers.get(message.river_id).complete = true;
-      break;
+        rivers.get(message.river_id).complete = true
+      break
 
-    case "tick":
-      setTickCount(message.tick);
-      tickEl.textContent = message.tick;
-      if (message.is_night !== undefined) setIsNight(message.is_night);
-      if (message.day_number !== undefined) setDayNumber(message.day_number);
-      if (message.day_phase !== undefined) setDayPhase(message.day_phase);
-      if (message.clouds !== undefined) setClouds(message.clouds);
-      updateDayNightUI();
-      break;
+    case 'tick':
+      setTickCount(message.tick)
+      tickEl.textContent = message.tick
+      if (message.is_night !== undefined) setIsNight(message.is_night)
+      if (message.day_number !== undefined) setDayNumber(message.day_number)
+      if (message.day_phase !== undefined) setDayPhase(message.day_phase)
+      if (message.clouds !== undefined) setClouds(message.clouds)
+      updateDayNightUI()
+      break
 
-    case "game_over":
-      applyClockState("stopped");
-      statusEl.textContent = "Game Over";
-      break;
+    case 'game_over':
+      applyClockState('stopped')
+      statusEl.textContent = 'Game Over'
+      break
   }
 
-  syncCounters();
-};
+  syncCounters()
+}
 
 export const fetchState = async () => {
   const [worldResponse, clockResponse, configResponse] = await Promise.all([
     fetch(`${API_BASE}/world`),
     fetch(`${API_BASE}/clock`),
-    fetch(`${API_BASE}/config`),
-  ]);
-  const worldData = await worldResponse.json();
-  const clockData = await clockResponse.json();
-  const configData = await configResponse.json();
-  agents.clear();
-  deadAgents.clear();
-  food.clear();
-  rivers.clear();
-  groups.clear();
+    fetch(`${API_BASE}/config`)
+  ])
+  const worldData = await worldResponse.json()
+  const clockData = await clockResponse.json()
+  const configData = await configResponse.json()
+  agents.clear()
+  deadAgents.clear()
+  food.clear()
+  rivers.clear()
+  groups.clear()
 
   worldData.agents.forEach((agentData) =>
     agentData.alive
       ? upsertAgent(agentData)
-      : deadAgents.set(agentData.id, agentData),
-  );
-  worldData.food.forEach(upsertFood);
-  worldData.rivers.forEach(upsertRiver);
-  setElevation(worldData.elevation);
-  setTemperature(worldData.temperature);
-  setPrecipitation(worldData.precipitation);
-  setClouds(worldData.clouds ?? []);
-  (worldData.groups ?? []).forEach((group) => groups.set(group.id, group));
+      : deadAgents.set(agentData.id, agentData)
+  )
+  worldData.food.forEach(upsertFood)
+  worldData.rivers.forEach(upsertRiver)
+  setElevation(worldData.elevation)
+  setTemperature(worldData.temperature)
+  setPrecipitation(worldData.precipitation)
+  setClouds(worldData.clouds ?? [])
+  ;(worldData.groups ?? []).forEach((group) => groups.set(group.id, group))
 
-  setTickCount(clockData.tick_count);
-  tickEl.textContent = clockData.tick_count || "—";
-  setTickMs(clockData.interval * 1000);
-  setIsNight(clockData.is_night ?? false);
-  setDayNumber(clockData.day_number ?? 1);
-  setDayPhase(clockData.day_phase ?? 0);
-  applyClockState(clockData.state);
-  updateDayNightUI();
-  syncCounters();
-};
+  setTickCount(clockData.tick_count)
+  tickEl.textContent = clockData.tick_count || '—'
+  setTickMs(clockData.interval * 1000)
+  setIsNight(clockData.is_night ?? false)
+  setDayNumber(clockData.day_number ?? 1)
+  setDayPhase(clockData.day_phase ?? 0)
+  applyClockState(clockData.state)
+  updateDayNightUI()
+  syncCounters()
+}
 
 export const connect = () => {
-  const ws = new WebSocket(WS_URL);
+  const ws = new WebSocket(WS_URL)
 
-  ws.onopen = () => fetchState();
-  ws.onerror = () => ws.close();
+  ws.onopen = () => fetchState()
+  ws.onerror = () => ws.close()
   ws.onclose = () => {
-    statusEl.textContent = "Disconnected — retrying…";
-    setTimeout(connect, 2000);
-  };
-  ws.onmessage = ({ data }) => handleMessage(data);
-};
+    statusEl.textContent = 'Disconnected — retrying…'
+    setTimeout(connect, 2000)
+  }
+  ws.onmessage = ({ data }) => handleMessage(data)
+}

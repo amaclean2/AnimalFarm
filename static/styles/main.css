@@ -519,6 +519,22 @@ button:disabled {
   border-color: #4a9eff;
 }
 
+.config-controls select {
+  flex: 1;
+  background: #111;
+  color: #eee;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-family: "Roboto", sans-serif;
+}
+
+.config-controls select:focus {
+  outline: none;
+  border-color: #4a9eff;
+}
+
 @media (max-width: 600px) {
   #panel {
     top: 8px;

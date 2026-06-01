@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>World Viewer — Animal Farm</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #000;
+        overflow: hidden;
+        font-family: monospace;
+      }
+      canvas {
+        display: block;
+      }
+
+      #loading {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 1.1rem;
+        background: #111;
+        z-index: 10;
+      }
+
+      #info {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 0.75rem;
+        line-height: 1.8;
+        text-shadow: 1px 1px 3px #000;
+        pointer-events: none;
+        display: none;
+      }
+
+      #hint {
+        position: fixed;
+        bottom: 12px;
+        left: 12px;
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 0.68rem;
+        text-shadow: 1px 1px 2px #000;
+        pointer-events: none;
+      }
+
+      /* ── Panel ───────────────────────────────────────────── */
+
+      #panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 252px;
+        height: 100%;
+        background: rgba(10, 12, 18, 0.94);
+        backdrop-filter: blur(6px);
+        border-left: 1px solid rgba(255, 255, 255, 0.07);
+        transform: translateX(100%);
+        transition: transform 0.22s ease;
+        z-index: 5;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+      }
+
+      #panel.open {
+        transform: translateX(0);
+      }
+
+      #panel-toggle {
+        position: fixed;
+        top: 50%;
+        right: 0;
+        transform: translateY(-50%);
+        background: rgba(10, 12, 18, 0.88);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-right: none;
+        color: rgba(255, 255, 255, 0.65);
+        cursor: pointer;
+        padding: 10px 6px;
+        font-size: 11px;
+        font-family: monospace;
+        z-index: 6;
+        border-radius: 4px 0 0 4px;
+        transition:
+          right 0.22s ease,
+          background 0.15s,
+          color 0.15s;
+        line-height: 1;
+      }
+
+      #panel-toggle:hover {
+        background: rgba(30, 35, 55, 0.95);
+        color: #fff;
+      }
+      body.panel-open #panel-toggle {
+        right: 252px;
+      }
+
+      .panel-section {
+        padding: 15px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+        flex-shrink: 0;
+      }
+
+      .section-title {
+        font-size: 0.59rem;
+        letter-spacing: 0.14em;
+        color: rgba(255, 255, 255, 0.28);
+        text-transform: uppercase;
+        margin-bottom: 13px;
+      }
+
+      .param-row {
+        margin-bottom: 12px;
+      }
+
+      .param-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 5px;
+      }
+
+      .param-label {
+        font-size: 0.7rem;
+        color: rgba(255, 255, 255, 0.72);
+      }
+      .param-value {
+        font-size: 0.68rem;
+        color: rgba(255, 255, 255, 0.38);
+      }
+
+      input[type="range"] {
+        width: 100%;
+        height: 3px;
+        -webkit-appearance: none;
+        appearance: none;
+        background: rgba(255, 255, 255, 0.11);
+        border-radius: 2px;
+        outline: none;
+        cursor: pointer;
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 12px;
+        height: 12px;
+        background: #4a9eff;
+        border-radius: 50%;
+        cursor: pointer;
+      }
+
+      input[type="range"]::-moz-range-thumb {
+        width: 12px;
+        height: 12px;
+        background: #4a9eff;
+        border-radius: 50%;
+        border: none;
+        cursor: pointer;
+      }
+
+      .seed-row {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+
+      input[type="number"],
+      input[type="text"] {
+        background: rgba(255, 255, 255, 0.055);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        color: rgba(255, 255, 255, 0.8);
+        font-family: monospace;
+        font-size: 0.7rem;
+        padding: 5px 8px;
+        border-radius: 3px;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+
+      input[type="number"] {
+        flex: 1;
+        min-width: 0;
+      }
+      input[type="text"] {
+        width: 100%;
+        margin-bottom: 7px;
+      }
+
+      input[type="number"]:focus,
+      input[type="text"]:focus {
+        border-color: rgba(74, 158, 255, 0.45);
+      }
+
+      .btn {
+        width: 100%;
+        padding: 7px 10px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.7);
+        font-family: monospace;
+        font-size: 0.7rem;
+        cursor: pointer;
+        border-radius: 3px;
+        letter-spacing: 0.04em;
+        transition:
+          background 0.15s,
+          color 0.15s,
+          border-color 0.15s;
+      }
+
+      .btn:hover {
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+      }
+
+      .btn-icon {
+        width: auto;
+        flex-shrink: 0;
+        padding: 5px 8px;
+        font-size: 0.9rem;
+      }
+
+      .btn-primary {
+        background: rgba(74, 158, 255, 0.15);
+        border-color: rgba(74, 158, 255, 0.3);
+        color: rgba(100, 175, 255, 0.9);
+        margin-top: 4px;
+      }
+
+      .btn-primary:hover {
+        background: rgba(74, 158, 255, 0.25);
+        border-color: rgba(74, 158, 255, 0.5);
+        color: #8ecfff;
+      }
+
+      #save-status {
+        font-size: 0.64rem;
+        min-height: 15px;
+        margin-top: 7px;
+        text-align: center;
+        color: rgba(100, 220, 100, 0.85);
+      }
+
+      .legend-section {
+        padding: 15px 16px;
+        flex-shrink: 0;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.67rem;
+        color: rgba(255, 255, 255, 0.55);
+        margin-bottom: 5px;
+      }
+
+      .swatch {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        flex-shrink: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading">Generating world…</div>
+    <div id="info"></div>
+    <div id="hint">
+      drag to orbit &nbsp;·&nbsp; scroll to zoom &nbsp;·&nbsp; right-drag to pan
+    </div>
+
+    <button id="panel-toggle">⚙</button>
+
+    <div id="panel">
+      <div class="panel-section">
+        <div class="section-title">World Parameters</div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span class="param-label">Seed</span>
+          </div>
+          <div class="seed-row">
+            <input
+              type="number"
+              id="s-seed"
+              min="0"
+              max="999999"
+              placeholder="random"
+            />
+            <button class="btn btn-icon" id="btn-randomize" title="Randomize">
+              ⟳
+            </button>
+          </div>
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span class="param-label">Springs</span>
+            <span class="param-value" id="v-springs">3</span>
+          </div>
+          <input
+            type="range"
+            id="s-springs"
+            min="1"
+            max="8"
+            step="1"
+            value="3"
+          />
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span class="param-label">Food clusters</span>
+            <span class="param-value" id="v-food-clusters">4</span>
+          </div>
+          <input
+            type="range"
+            id="s-food-clusters"
+            min="1"
+            max="10"
+            step="1"
+            value="4"
+          />
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span class="param-label">Food abundance</span>
+            <span class="param-value" id="v-food-prob">0.20</span>
+          </div>
+          <input
+            type="range"
+            id="s-food-prob"
+            min="0.05"
+            max="0.5"
+            step="0.01"
+            value="0.2"
+          />
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span class="param-label">Elevation coarseness</span>
+            <span class="param-value" id="v-coarse-scale">90</span>
+          </div>
+          <input
+            type="range"
+            id="s-coarse-scale"
+            min="10"
+            max="120"
+            step="5"
+            value="90"
+          />
+        </div>
+
+        <button class="btn btn-primary" id="btn-generate">Generate</button>
+      </div>
+
+      <div class="panel-section">
+        <div class="section-title">Save World</div>
+        <input type="text" id="world-name" placeholder="World name…" />
+        <button class="btn" id="btn-save">Save</button>
+        <div id="save-status"></div>
+      </div>
+
+      <div class="legend-section">
+        <div class="section-title">Legend</div>
+        <div class="legend-item">
+          <div class="swatch" style="background: #3a7a1f"></div>
+          Lowland
+        </div>
+        <div class="legend-item">
+          <div class="swatch" style="background: #8a6030"></div>
+          Upland
+        </div>
+        <div class="legend-item">
+          <div class="swatch" style="background: #8a8a8a"></div>
+          Mountain
+        </div>
+        <div class="legend-item">
+          <div class="swatch" style="background: #e8e8e8"></div>
+          Snow
+        </div>
+        <div class="legend-item">
+          <div class="swatch" style="background: #1a6fcc"></div>
+          River
+        </div>
+        <div class="legend-item">
+          <div class="swatch" style="background: #2dbb3a"></div>
+          Food
+        </div>
+        <div class="legend-item">
+          <div
+            class="swatch"
+            style="background: rgba(255, 255, 255, 0.55)"
+          ></div>
+          Cloud
+        </div>
+      </div>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+      const ELEV_SCALE = 10;
+      const WORLD_W = 100;
+      const HALF = WORLD_W / 2;
+      const TILE = 1.0;
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x8ab4e8);
+      scene.fog = new THREE.Fog(0x8ab4e8, 110, 240);
+
+      const camera = new THREE.PerspectiveCamera(
+        50,
+        innerWidth / innerHeight,
+        0.1,
+        500,
+      );
+      camera.position.set(0, 75, 95);
+      camera.lookAt(0, 0, 0);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      document.body.appendChild(renderer.domElement);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.07;
+      controls.minDistance = 8;
+      controls.maxDistance = 260;
+      controls.target.set(0, 0, 0);
+
+      window.addEventListener("resize", () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+      });
+
+      scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+      const sun = new THREE.DirectionalLight(0xfffbe8, 1.05);
+      sun.position.set(60, 120, 40);
+      scene.add(sun);
+
+      // Track scene objects so we can clear them on regeneration
+      const worldObjects = [];
+
+      function clearWorldObjects() {
+        for (const obj of worldObjects) {
+          scene.remove(obj);
+          if (obj.geometry) obj.geometry.dispose();
+        }
+        worldObjects.length = 0;
+      }
+
+      function gridToWorld(gx, gy) {
+        return [gx - HALF + 0.5, gy - HALF + 0.5];
+      }
+
+      function elevAt(elevation, gx, gy) {
+        return elevation[gy * WORLD_W + gx] * ELEV_SCALE;
+      }
+
+      function elevColor(e) {
+        if (e < 0.35) {
+          const t = e / 0.35;
+          return [0.12 + 0.1 * t, 0.4 + 0.2 * t, 0.08 + 0.04 * t];
+        }
+        if (e < 0.6) {
+          const t = (e - 0.35) / 0.25;
+          return [0.22 + 0.32 * t, 0.6 - 0.22 * t, 0.12 - 0.04 * t];
+        }
+        if (e < 0.8) {
+          const t = (e - 0.6) / 0.2;
+          return [0.54 + 0.08 * t, 0.38 + 0.16 * t, 0.08 + 0.32 * t];
+        }
+        const t = (e - 0.8) / 0.2;
+        return [0.62 + 0.38 * t, 0.54 + 0.46 * t, 0.4 + 0.6 * t];
+      }
+
+      function buildScene(data) {
+        clearWorldObjects();
+        const { seed, elevation, rivers, food, clouds } = data;
+
+        // Terrain
+        const tGeo = new THREE.BoxGeometry(TILE, 1, TILE);
+        const tMat = new THREE.MeshLambertMaterial();
+        const tMesh = new THREE.InstancedMesh(tGeo, tMat, WORLD_W * WORLD_W);
+        const tDummy = new THREE.Object3D();
+        const tColor = new THREE.Color();
+
+        for (let iy = 0; iy < WORLD_W; iy++) {
+          for (let ix = 0; ix < WORLD_W; ix++) {
+            const i = iy * WORLD_W + ix;
+            const e = elevation[i];
+            const h = Math.max(e * ELEV_SCALE, 0.3);
+            const [wx, wz] = gridToWorld(ix, iy);
+            tDummy.position.set(wx, h / 2, wz);
+            tDummy.scale.set(1, h, 1);
+            tDummy.updateMatrix();
+            tMesh.setMatrixAt(i, tDummy.matrix);
+            const [r, g, b] = elevColor(e);
+            tColor.setRGB(r, g, b);
+            tMesh.setColorAt(i, tColor);
+          }
+        }
+
+        tMesh.instanceMatrix.needsUpdate = true;
+        tMesh.instanceColor.needsUpdate = true;
+        scene.add(tMesh);
+        worldObjects.push(tMesh);
+
+        // Rivers
+        const riverTiles = [];
+        for (const river of rivers) {
+          for (const [rx, ry] of river.tiles) {
+            riverTiles.push([rx, ry]);
+          }
+        }
+
+        if (riverTiles.length > 0) {
+          const rGeo = new THREE.PlaneGeometry(TILE, TILE);
+          rGeo.rotateX(-Math.PI / 2);
+          const rMat = new THREE.MeshBasicMaterial({ color: 0x1a6fcc });
+          const rMesh = new THREE.InstancedMesh(rGeo, rMat, riverTiles.length);
+          const dummy = new THREE.Object3D();
+
+          for (let i = 0; i < riverTiles.length; i++) {
+            const [rx, ry] = riverTiles[i];
+            const [wx, wz] = gridToWorld(rx, ry);
+            dummy.position.set(wx, elevAt(elevation, rx, ry) + 0.06, wz);
+            dummy.updateMatrix();
+            rMesh.setMatrixAt(i, dummy.matrix);
+          }
+
+          rMesh.instanceMatrix.needsUpdate = true;
+          scene.add(rMesh);
+          worldObjects.push(rMesh);
+        }
+
+        // Food
+        if (food.length > 0) {
+          const fGeo = new THREE.SphereGeometry(0.28, 4, 3);
+          const fMat = new THREE.MeshBasicMaterial({ color: 0x2dbb3a });
+          const fMesh = new THREE.InstancedMesh(fGeo, fMat, food.length);
+          const dummy = new THREE.Object3D();
+
+          for (let i = 0; i < food.length; i++) {
+            const { x: fx, y: fy } = food[i];
+            const [wx, wz] = gridToWorld(fx, fy);
+            dummy.position.set(wx, elevAt(elevation, fx, fy) + 0.38, wz);
+            dummy.updateMatrix();
+            fMesh.setMatrixAt(i, dummy.matrix);
+          }
+
+          fMesh.instanceMatrix.needsUpdate = true;
+          scene.add(fMesh);
+          worldObjects.push(fMesh);
+        }
+
+        // Clouds
+        if (clouds.length > 0) {
+          const cGeo = new THREE.SphereGeometry(1, 10, 6);
+          const cMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.55,
+          });
+          const cMesh = new THREE.InstancedMesh(cGeo, cMat, clouds.length);
+          const dummy = new THREE.Object3D();
+          const CLOUD_Y = ELEV_SCALE * 2.1;
+
+          for (let i = 0; i < clouds.length; i++) {
+            const { cx, cy, radius } = clouds[i];
+            const [wx, wz] = gridToWorld(cx, cy);
+            dummy.position.set(wx, CLOUD_Y, wz);
+            dummy.scale.set(radius * 0.55, radius * 0.22, radius * 0.55);
+            dummy.updateMatrix();
+            cMesh.setMatrixAt(i, dummy.matrix);
+          }
+
+          cMesh.instanceMatrix.needsUpdate = true;
+          scene.add(cMesh);
+          worldObjects.push(cMesh);
+        }
+
+        document.getElementById("s-seed").value = seed;
+        const info = document.getElementById("info");
+        info.innerHTML =
+          `seed &nbsp;<strong>${seed}</strong><br>` +
+          `${food.length} food items<br>` +
+          `${riverTiles.length} river tiles<br>` +
+          `${clouds.length} clouds`;
+        info.style.display = "block";
+        document.getElementById("loading").style.display = "none";
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      // ── Panel toggle ──────────────────────────────────────
+
+      const panel = document.getElementById("panel");
+      const toggle = document.getElementById("panel-toggle");
+
+      toggle.addEventListener("click", () => {
+        const open = panel.classList.toggle("open");
+        document.body.classList.toggle("panel-open", open);
+        toggle.textContent = open ? "✕" : "⚙";
+      });
+
+      // ── Slider bindings ───────────────────────────────────
+
+      function bindSlider(sliderId, valueId, fmt) {
+        const slider = document.getElementById(sliderId);
+        const display = document.getElementById(valueId);
+        slider.addEventListener("input", () => {
+          display.textContent = fmt(slider.value);
+        });
+      }
+
+      bindSlider("s-springs", "v-springs", (v) => v);
+      bindSlider("s-food-clusters", "v-food-clusters", (v) => v);
+      bindSlider("s-food-prob", "v-food-prob", (v) => parseFloat(v).toFixed(2));
+      bindSlider("s-coarse-scale", "v-coarse-scale", (v) => v);
+
+      document.getElementById("btn-randomize").addEventListener("click", () => {
+        document.getElementById("s-seed").value = Math.floor(
+          Math.random() * 1_000_000,
+        );
+      });
+
+      // ── Generate ──────────────────────────────────────────
+
+      async function generate() {
+        const loadEl = document.getElementById("loading");
+        loadEl.textContent = "Generating world…";
+        loadEl.style.display = "flex";
+
+        const seedRaw = document.getElementById("s-seed").value.trim();
+
+        try {
+          const r = await fetch("/world/preview", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              seed: seedRaw === "" ? null : parseInt(seedRaw),
+              num_springs: parseInt(document.getElementById("s-springs").value),
+              num_food_clusters: parseInt(
+                document.getElementById("s-food-clusters").value,
+              ),
+              food_peak_probability: parseFloat(
+                document.getElementById("s-food-prob").value,
+              ),
+              elevation_coarse_scale: parseFloat(
+                document.getElementById("s-coarse-scale").value,
+              ),
+            }),
+          });
+
+          if (!r.ok) throw new Error(`Server error ${r.status}`);
+          buildScene(await r.json());
+        } catch (err) {
+          loadEl.textContent = "Failed: " + err.message;
+        }
+      }
+
+      document
+        .getElementById("btn-generate")
+        .addEventListener("click", generate);
+
+      // ── Save world ────────────────────────────────────────
+
+      document
+        .getElementById("btn-save")
+        .addEventListener("click", async () => {
+          const nameInput = document.getElementById("world-name");
+          const name =
+            nameInput.value.trim() ||
+            `World ${new Date().toLocaleDateString()}`;
+          const statusEl = document.getElementById("save-status");
+
+          try {
+            const r = await fetch("/world/save", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name,
+                seed: parseInt(document.getElementById("s-seed").value),
+                config: {
+                  num_springs: parseInt(
+                    document.getElementById("s-springs").value,
+                  ),
+                  num_food_clusters: parseInt(
+                    document.getElementById("s-food-clusters").value,
+                  ),
+                  food_peak_probability: parseFloat(
+                    document.getElementById("s-food-prob").value,
+                  ),
+                  elevation_coarse_scale: parseFloat(
+                    document.getElementById("s-coarse-scale").value,
+                  ),
+                },
+              }),
+            });
+
+            if (!r.ok) throw new Error(`Server error ${r.status}`);
+            statusEl.style.color = "rgba(100,220,100,0.85)";
+            statusEl.textContent = `Saved "${name}"`;
+            nameInput.value = "";
+            setTimeout(() => {
+              statusEl.textContent = "";
+            }, 2500);
+          } catch (err) {
+            statusEl.style.color = "rgba(255,100,100,0.8)";
+            statusEl.textContent = "Save failed: " + err.message;
+            setTimeout(() => {
+              statusEl.textContent = "";
+              statusEl.style.color = "";
+            }, 3000);
+          }
+        });
+
+      // ── Initial load ──────────────────────────────────────
+
+      fetch("/world/preview")
+        .then((r) => r.json())
+        .then(buildScene)
+        .catch((err) => {
+          document.getElementById("loading").textContent =
+            "Failed to load world: " + err.message;
+        });
+    </script>
+  </body>
+</html>

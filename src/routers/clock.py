@@ -2,8 +2,8 @@ import config as cfg
 
 from fastapi import APIRouter, HTTPException
 
+import deps
 from clock import clock
-from simulation import simulation
 
 router = APIRouter(prefix="/clock")
 
@@ -20,22 +20,26 @@ async def stop_clock() -> None:
     if clock.state == "stopped":
         raise HTTPException(status_code=400, detail="Clock is already stopped")
     clock.stop()
-    simulation.save_log()
+    deps.simulation.save_log()
     cfg.reset_runtime()
-    simulation.reset()
+    deps.simulation.reset()
 
 
 @router.post("/pause", status_code=204)
 async def pause_clock() -> None:
     if clock.state != "running":
-        raise HTTPException(status_code=400, detail=f"Clock is {clock.state}, not running")
+        raise HTTPException(
+            status_code=400, detail=f"Clock is {clock.state}, not running"
+        )
     clock.pause()
 
 
 @router.post("/resume", status_code=204)
 async def resume_clock() -> None:
     if clock.state != "paused":
-        raise HTTPException(status_code=400, detail=f"Clock is {clock.state}, not paused")
+        raise HTTPException(
+            status_code=400, detail=f"Clock is {clock.state}, not paused"
+        )
     clock.resume()
 
 

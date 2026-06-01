@@ -3,10 +3,11 @@ import math
 from pydantic import BaseModel
 
 from config import MEMORY_CAP, CONFIDENCE_PRUNE, DECAY_RATE, FAMILIARITY_WEIGHT
+from pos import Pos
 
 
 class MemoryEntry(BaseModel):
-    pos: tuple[int, int]
+    pos: Pos
     quality: float
     added_tick: int
     visit_count: int = 1
@@ -27,9 +28,7 @@ class Memory(BaseModel):
     water: list[MemoryEntry] = []
     rest: list[MemoryEntry] = []
 
-    def observe(
-        self, pos: tuple[int, int], kind: str, quality: float, tick: int
-    ) -> None:
+    def observe(self, pos: Pos, kind: str, quality: float, tick: int) -> None:
         entries = self._bucket(kind)
 
         for entry in entries:
@@ -47,7 +46,7 @@ class Memory(BaseModel):
 
     def query(
         self, kind: str, tick: int, urgency: float = 0.0, familiarity: bool = False
-    ) -> tuple[int, int] | None:
+    ) -> Pos | None:
 
         entries = [
             e for e in self._bucket(kind) if e.confidence(tick) >= CONFIDENCE_PRUNE
@@ -68,6 +67,12 @@ class Memory(BaseModel):
         if not entries:
             return 0.0
         return max(entry.score(tick, familiarity=familiarity) for entry in entries)
+
+    def quality_of(self, kind: str, pos: Pos) -> float:
+        for entry in self._bucket(kind):
+            if entry.pos == pos:
+                return entry.quality
+        return 0.0
 
     def _bucket(self, kind: str) -> list[MemoryEntry]:
         return {

@@ -101,13 +101,33 @@ const isVisible = (screenX, screenY) =>
   screenY < canvas.height;
 
 const drawRivers = () => {
+  const colStart = Math.floor(camera.x / viewport.cellSize);
+  const colEnd = Math.min(
+    Math.ceil((camera.x + canvas.width) / viewport.cellSize),
+    WORLD_WIDTH,
+  );
+  const rowStart = Math.floor(camera.y / viewport.cellSize);
+  const rowEnd = Math.min(
+    Math.ceil((camera.y + canvas.height) / viewport.cellSize),
+    WORLD_HEIGHT,
+  );
+
   ctx.fillStyle = "rgba(41, 128, 185, 0.55)";
   for (const river of rivers.values()) {
     for (const [tileX, tileY] of river.tiles) {
-      const screenX = tileX * viewport.cellSize - camera.x;
-      const screenY = tileY * viewport.cellSize - camera.y;
-      if (!isVisible(screenX, screenY)) continue;
-      ctx.fillRect(screenX, screenY, viewport.cellSize, viewport.cellSize);
+      if (
+        tileX < colStart ||
+        tileX >= colEnd ||
+        tileY < rowStart ||
+        tileY >= rowEnd
+      )
+        continue;
+      ctx.fillRect(
+        tileX * viewport.cellSize - camera.x,
+        tileY * viewport.cellSize - camera.y,
+        viewport.cellSize,
+        viewport.cellSize,
+      );
     }
   }
 };
@@ -210,11 +230,28 @@ const drawRestMemory = (agent) => {
 };
 
 const drawFood = (visibleFoodIds) => {
+  const colStart = Math.floor(camera.x / viewport.cellSize);
+  const colEnd = Math.min(
+    Math.ceil((camera.x + canvas.width) / viewport.cellSize),
+    WORLD_WIDTH,
+  );
+  const rowStart = Math.floor(camera.y / viewport.cellSize);
+  const rowEnd = Math.min(
+    Math.ceil((camera.y + canvas.height) / viewport.cellSize),
+    WORLD_HEIGHT,
+  );
+
   for (const foodItem of food.values()) {
+    if (
+      foodItem.x < colStart ||
+      foodItem.x >= colEnd ||
+      foodItem.y < rowStart ||
+      foodItem.y >= rowEnd
+    )
+      continue;
+
     const screenX = foodItem.x * viewport.cellSize - camera.x;
     const screenY = foodItem.y * viewport.cellSize - camera.y;
-    if (!isVisible(screenX, screenY)) continue;
-
     const isHighlighted = visibleFoodIds.has(foodItem.id);
     ctx.fillStyle = isHighlighted ? "#f1c40f" : "#27ae60";
     ctx.beginPath();

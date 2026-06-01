@@ -1,7 +1,8 @@
 def value_noise_2d(x: int, y: int, scale: float, seed: int) -> float:
     def corner_val(xi: int, yi: int) -> float:
-        n = xi * 1619 + yi * 31337 + seed * 1013904223
-        n = (n ^ (n >> 8)) & 0xFFFFFFFF
+        n = xi * 374761393 ^ yi * 1013904223 ^ seed * 1664525
+        n = (n ^ (n >> 16)) * 0x45D9F3B
+        n = (n ^ (n >> 16)) & 0xFFFFFFFF
         return (n & 0xFFFF) / 0xFFFF
 
     fx = x / scale

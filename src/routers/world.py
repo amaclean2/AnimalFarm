@@ -1,24 +1,117 @@
-from fastapi import APIRouter
+import json
+import random
+from datetime import datetime, timezone
+from pathlib import Path
+from uuid import uuid4
 
-from world import world
+import config as cfg
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
+import deps
+from world.preview import build_preview
 
 router = APIRouter()
+
+WORLDS_DIR = Path(__file__).parent.parent.parent / "worlds"
+
+
+@router.get("/world/preview")
+async def preview_world_get() -> dict:
+    seed = random.randint(0, 999999)
+    return build_preview(
+        seed=seed,
+        num_springs=cfg.NUM_SPRINGS,
+        num_food_clusters=cfg.NUM_FOOD_CLUSTERS,
+        food_peak_probability=cfg.FOOD_PEAK_PROBABILITY,
+        elevation_coarse_scale=90.0,
+    )
+
+
+class PreviewConfig(BaseModel):
+    seed: int | None = None
+    num_springs: int = cfg.NUM_SPRINGS
+    num_food_clusters: int = cfg.NUM_FOOD_CLUSTERS
+    food_peak_probability: float = cfg.FOOD_PEAK_PROBABILITY
+    elevation_coarse_scale: float = 90.0
+
+
+@router.post("/world/preview")
+async def preview_world_post(body: PreviewConfig) -> dict:
+    seed = body.seed if body.seed is not None else random.randint(0, 999999)
+    return build_preview(
+        seed=seed,
+        num_springs=body.num_springs,
+        num_food_clusters=body.num_food_clusters,
+        food_peak_probability=body.food_peak_probability,
+        elevation_coarse_scale=body.elevation_coarse_scale,
+    )
+
+
+class SaveWorldBody(BaseModel):
+    name: str
+    seed: int
+    config: dict
+
+
+@router.post("/world/save", status_code=201)
+async def save_world(body: SaveWorldBody) -> dict:
+    WORLDS_DIR.mkdir(exist_ok=True)
+    world_id = str(uuid4())
+    data = {
+        "id": world_id,
+        "name": body.name,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "seed": body.seed,
+        "config": body.config,
+    }
+    (WORLDS_DIR / f"{world_id}.json").write_text(json.dumps(data, indent=2))
+    return data
+
+
+@router.get("/world/saved")
+async def list_saved_worlds() -> list:
+    if not WORLDS_DIR.exists():
+        return []
+    worlds_list = []
+    for path in sorted(WORLDS_DIR.glob("*.json")):
+        try:
+            data = json.loads(path.read_text())
+            worlds_list.append(
+                {
+                    "id": data["id"],
+                    "name": data["name"],
+                    "created_at": data["created_at"],
+                    "config": data.get("config", {}),
+                }
+            )
+        except Exception:
+            pass
+    return worlds_list
+
+
+@router.delete("/world/saved/{world_id}", status_code=204)
+async def delete_saved_world(world_id: str) -> None:
+    path = WORLDS_DIR / f"{world_id}.json"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="World not found")
+    path.unlink()
 
 
 @router.get("/world")
 async def get_world() -> dict:
     return {
-        "width": world.width,
-        "height": world.height,
-        "agents": [a.model_dump(mode="json") for a in world.all_agents()],
-        "food": [f.model_dump(mode="json") for f in world.all_food()],
+        "width": deps.world.width,
+        "height": deps.world.height,
+        "agents": [a.model_dump(mode="json") for a in deps.agents.all()],
+        "food": [f.model_dump(mode="json") for f in deps.food.all_food],
         "rivers": [
             {"river_id": str(r.id), "tiles": list(r.tiles), "complete": r.complete}
-            for r in world.all_rivers()
+            for r in deps.world.rivers.all_rivers
         ],
-        "groups": [{"id": str(g.id)} for g in world.all_groups()],
-        "elevation": world.all_elevation(),
-        "temperature": world.all_temperature(),
-        "precipitation": world.all_precipitation(),
-        "clouds": world.clouds_to_list(),
+        "groups": [{"id": str(g.id)} for g in deps.agents.all_groups],
+        "elevation": deps.world.all_elevation(),
+        "temperature": deps.world.weather.base_temperature(),
+        "precipitation": deps.world.weather.base_precipitation(),
+        "clouds": deps.world.weather.clouds_to_list(),
     }

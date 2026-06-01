@@ -4,15 +4,17 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, computed_field
 
-from agent.memory import Memory
-from agent.needs import NeedState
+from agents.memory import Memory
+from agents.needs import NeedState
 import config as _cfg
 from config import (
     REPRODUCTION_HUNGER_THRESHOLD,
+    MATING_COOLDOWN,
     VISION_RANGE,
     CONTINUATION_BONUS,
 )
-from food import Food
+from pos import Pos
+from food import FoodItem
 from tasks import Task
 
 _NEEDS = [
@@ -97,18 +99,20 @@ class Agent(BaseModel):
     mutations: list[str] = Field(default_factory=list)
 
     group_id: UUID | None = None
-    carried_food: Food | None = None
+    carried_food: FoodItem | None = None
+
+    last_mated_tick: int = -(MATING_COOLDOWN + 1)
 
     direction: tuple[int, int] | None = None
     active_task: Task | None = None
-    path: list[tuple[int, int]] = Field(default_factory=list)
+    path: list[Pos] = Field(default_factory=list)
     last_decision_tick: int = 0
-    explore_target: tuple[int, int] | None = None
+    explore_target: Pos | None = None
     explore_target_tick: int = 0
+    rest_target: Pos | None = None
 
     needs: NeedState = Field(default_factory=NeedState)
     memory: Memory = Field(default_factory=Memory)
-    decision_log: list[dict] = Field(default_factory=list, exclude=True)
 
     # --- computed fields so model_dump keeps the fields the frontend expects ---
 
@@ -137,19 +141,22 @@ class Agent(BaseModel):
     def water(self) -> float:
         return self.needs.water
 
-    # backward compat for movement.py: nearest recently-observed food position
     @property
-    def last_food_seen(self) -> tuple[int, int] | None:
+    def pos(self) -> Pos:
+        return Pos(self.x, self.y)
+
+    @property
+    def last_food_seen(self) -> Pos | None:
         if not self.memory.food:
             return None
         return max(self.memory.food, key=lambda e: e.added_tick).pos
 
     # --- lifecycle ---
 
-    def move_to(self, x: int, y: int) -> None:
-        self.direction = (x - self.x, y - self.y)
-        self.x = x
-        self.y = y
+    def move_to(self, pos: Pos) -> None:
+        self.direction = (pos.x - self.x, pos.y - self.y)
+        self.x = pos.x
+        self.y = pos.y
 
     def eat(self) -> None:
         self.needs.eat()
@@ -162,6 +169,29 @@ class Agent(BaseModel):
         self.alive = False
         self.active_task = None
         self.path = []
+
+    def should_die(self) -> bool:
+        return self.hunger <= 0 or self.needs.rest <= 0 or self.age >= _cfg.MAX_AGE
+
+    def continue_sleeping(self) -> bool:
+        """If already sleeping and still needs rest, keep sleeping and return True.
+        Resets is_sleeping to False otherwise so try_fall_asleep can set it cleanly."""
+        was = self.needs.is_sleeping
+        self.needs.is_sleeping = False
+
+        if was and self.needs.rest < 1.0:
+            self.needs.is_sleeping = True
+            return True
+
+        return False
+
+    def try_fall_asleep(self, at_rest_target: bool) -> bool:
+        """Transition to sleeping if the current task calls for it. Returns True if now sleeping."""
+        if self.active_task and self.active_task.name == "sleep" and at_rest_target:
+            self.needs.is_sleeping = True
+            return True
+
+        return False
 
     # --- need delegation ---
 
@@ -178,40 +208,89 @@ class Agent(BaseModel):
 
     # --- memory delegation ---
 
-    def update_food_memory(self, food_targets: list[Food], tick: int) -> None:
+    def update_food_memory(self, food_targets: list[FoodItem], tick: int) -> None:
         for food in food_targets:
-            self.memory.observe((food.x, food.y), "food", float(food.value), tick)
+            self.memory.observe(food.pos, "food", float(food.value), tick)
 
-    def update_rest_memory(
-        self, pos: tuple[int, int], quality: float, tick: int
-    ) -> None:
+    def update_water_memory(self, visible_water: list[Pos], tick: int) -> None:
+        for pos in visible_water:
+            self.memory.observe(pos, "water", 1.0, tick)
+
+    def update_rest_memory(self, pos: Pos, quality: float, tick: int) -> None:
         self.memory.observe(pos, "rest", quality, tick)
+
+    def update_rest_target(
+        self,
+        visible_rest: Pos | None,
+        visible_q: float,
+        sleeping_tiles: set[Pos],
+        is_night: bool,
+        tick: int,
+    ) -> None:
+        if self.needs.rest >= 0.8:
+            self.rest_target = None
+            return
+
+        drain_rate = _cfg.REST_BASE_DRAIN * (
+            _cfg.REST_NIGHT_MULTIPLIER if is_night else 1.0
+        )
+        usable = max(0.0, self.needs.rest - _cfg.REST_SAFETY_BUFFER_FRAC)
+        max_travel = max(1, int(usable / drain_rate))
+
+        if self.rest_target is not None:
+            cur_dist = abs(self.x - self.rest_target.x) + abs(
+                self.y - self.rest_target.y
+            )
+            if self.rest_target in sleeping_tiles or cur_dist > max_travel:
+                self.rest_target = None
+
+        if self.rest_target is None:
+            memory_rest = self.memory.query("rest", tick, familiarity=True)
+
+            if memory_rest is not None:
+                mem_dist = abs(self.x - memory_rest.x) + abs(self.y - memory_rest.y)
+                if mem_dist > max_travel or memory_rest in sleeping_tiles:
+                    memory_rest = None
+
+            if visible_rest and memory_rest:
+                mem_q = self.memory.quality_of("rest", memory_rest)
+                mem_dist = abs(self.x - memory_rest.x) + abs(self.y - memory_rest.y)
+                decay = max(0.0, 1.0 - mem_dist / max(max_travel, 1))
+                mem_score = mem_q + _cfg.MEMORY_REST_BONUS * decay
+                self.rest_target = (
+                    memory_rest if mem_score >= visible_q else visible_rest
+                )
+            elif visible_rest:
+                self.rest_target = visible_rest
+            elif memory_rest:
+                self.rest_target = memory_rest
+        elif visible_rest:
+            vis_dist = abs(self.x - visible_rest.x) + abs(self.y - visible_rest.y)
+            cur_dist = abs(self.x - self.rest_target.x) + abs(
+                self.y - self.rest_target.y
+            )
+            if vis_dist < cur_dist * 0.7:
+                self.rest_target = visible_rest
 
     # --- reproduction ---
 
-    def is_eligible_to_mate(self) -> bool:
+    def is_eligible_to_mate(self, tick: int) -> bool:
         return (
             self.age >= _cfg.MATURITY_AGE
             and self.needs.hunger >= REPRODUCTION_HUNGER_THRESHOLD
             and not self.needs.is_sleeping
+            and tick - self.last_mated_tick >= MATING_COOLDOWN
         )
 
     # --- decision making ---
 
-    def _needs_snapshot(self) -> dict:
-        return {
-            "hunger": self.needs.hunger,
-            "water": self.needs.water,
-            "rest": self.needs.rest,
-        }
-
     def choose_action(
         self,
         is_night: bool,
-        mate_pos: tuple[int, int] | None,
-        explore_goal: tuple[int, int],
+        mate_pos: Pos | None,
+        explore_goal: Pos,
         tick: int,
-        rest_target: tuple[int, int] | None = None,
+        rest_target: Pos | None = None,
     ) -> Task:
         urgencies = self.needs.urgency_vector()
         food_target = self.memory.query("food", tick, urgency=urgencies["hunger"])
@@ -222,34 +301,14 @@ class Agent(BaseModel):
         )
 
         best_action, best_score = "explore", float("-inf")
-        scored: list[dict] = []
         for action in candidates:
             score = sum(urgencies[need] * _RELEVANCE[action][need] for need in _NEEDS)
-            is_continuation = bool(self.active_task and self.active_task.name == action)
 
-            if is_continuation:
+            if self.active_task and self.active_task.name == action:
                 score += CONTINUATION_BONUS
-            scored.append(
-                {
-                    "action": action,
-                    "score": round(score, 4),
-                    "continuation": is_continuation,
-                }
-            )
 
             if score > best_score:
                 best_score, best_action = score, action
-
-        self.decision_log.append(
-            {
-                "tick": tick,
-                "pos": [self.x, self.y],
-                "needs": self._needs_snapshot(),
-                "urgencies": {k: round(v, 4) for k, v in urgencies.items()},
-                "candidates": sorted(scored, key=lambda s: s["score"], reverse=True),
-                "chosen": best_action,
-            }
-        )
 
         self.last_decision_tick = tick
         return self._resolve_task(
@@ -263,10 +322,10 @@ class Agent(BaseModel):
 
     def _feasible_actions(
         self,
-        food_target: tuple[int, int] | None,
-        water_target: tuple[int, int] | None,
-        mate_pos: tuple[int, int] | None,
-        rest_target: tuple[int, int] | None = None,
+        food_target: Pos | None,
+        water_target: Pos | None,
+        mate_pos: Pos | None,
+        rest_target: Pos | None = None,
     ) -> list[str]:
         if self.needs.is_sleeping and self.needs.rest < 1.0 and rest_target:
             return ["sleep"]
@@ -290,26 +349,24 @@ class Agent(BaseModel):
     def _resolve_task(
         self,
         action: str,
-        food: tuple[int, int] | None,
-        water: tuple[int, int] | None,
-        mate: tuple[int, int] | None,
-        explore: tuple[int, int],
-        rest: tuple[int, int] | None = None,
+        food: Pos | None,
+        water: Pos | None,
+        mate: Pos | None,
+        explore: Pos,
+        rest: Pos | None = None,
     ) -> Task:
-        goal: tuple[int, int] = {
+        goal: Pos | None = {
             "seek_food": food,
             "drink": water,
             "sleep": rest,
             "mate": mate,
             "explore": explore,
         }.get(action, explore)
-        return Task(priority=0, name=action, goal_pos=goal)
+        return Task(priority=0, name=action, goal_pos=goal or explore)
 
-    def explore_goal(
-        self, world_width: int, world_height: int, tick: int = 0
-    ) -> tuple[int, int]:
+    def explore_goal(self, world_width: int, world_height: int, tick: int = 0) -> Pos:
         arrived = self.explore_target is not None and (
-            abs(self.x - self.explore_target[0]) + abs(self.y - self.explore_target[1])
+            abs(self.x - self.explore_target.x) + abs(self.y - self.explore_target.y)
             <= 2
         )
         stale = tick - self.explore_target_tick > 40
@@ -317,7 +374,7 @@ class Agent(BaseModel):
         if self.explore_target is None or arrived or stale:
             angle = random.uniform(0, 2 * math.pi)
             dist = random.randint(15, 35)
-            self.explore_target = (
+            self.explore_target = Pos(
                 max(0, min(world_width - 1, int(self.x + dist * math.cos(angle)))),
                 max(0, min(world_height - 1, int(self.y + dist * math.sin(angle)))),
             )

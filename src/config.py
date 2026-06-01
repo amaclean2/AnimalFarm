@@ -65,9 +65,10 @@ REST_SAFETY_BUFFER_FRAC = 0.05  # rest fraction to keep in reserve when planning
 
 # ── Reproduction ──────────────────────────────────────────────────────────────
 
-REPRODUCTION_HUNGER_THRESHOLD = 0.87  # hunger [0,1] required to mate
-REPRODUCTION_CHANCE = 0.05
+REPRODUCTION_HUNGER_THRESHOLD = 0.85  # hunger [0,1] required to mate
+REPRODUCTION_CHANCE = 0.07
 REPRODUCTION_RANGE = 3  # manhattan distance within which mating can occur
+MATING_COOLDOWN = 10  # ticks an agent must wait before mating again
 
 # ── Decision making ───────────────────────────────────────────────────────────
 
@@ -100,9 +101,12 @@ FOOD_WATER_WEIGHT = 2.0
 FOOD_CLUSTER_WEIGHT = 1.0
 FOOD_SCORE_FLOOR = 0.01
 
-RIVER_GRAVITY_SCALE = 8.0  # exp scale for elevation-based river flow
+RIVER_GRAVITY_SCALE = 10.0  # exp scale for elevation-based flow weighting
+RIVER_DIRECTION_BIAS = 0.1  # effective-delta bonus for continuing in the same direction
+RIVER_POOL_RISE_RATE = 0.01  # elevation units the pool fills per tick at a local min
 
 HILL_COST_SCALE = 3.0  # extra A* cost per unit of elevation gained
+RIVER_CROSSING_COST = 3.0  # extra A* cost for stepping onto a river tile
 HILL_ENERGY_MULTIPLIER = (
     20.0  # uphill hunger drain = elev_gain × this × HUNGER_BASE_DRAIN
 )

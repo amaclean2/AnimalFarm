@@ -1,21 +1,25 @@
+import json
 import math
 import random
+from pathlib import Path
 
 import config as cfg
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+import deps
 from clock import clock
 from connections import broadcast
-from ecology import flow_rivers
-from agent.mutations import seed_genotype
-from simulation import simulation
-from world import world
+from agents.mutations import seed_genotype
+from pos import Pos
 
 router = APIRouter()
 
+WORLDS_DIR = Path(__file__).parent.parent.parent / "worlds"
+
 
 class StartConfig(BaseModel):
+    world_id: str | None = None
     agent_count: int | None = None
     num_springs: int | None = None
     num_food_clusters: int | None = None
@@ -26,8 +30,8 @@ class StartConfig(BaseModel):
     spontaneous_mutation_rate: float | None = None
 
 
-def _food_probability(x: int, y: int, centers: list[tuple[int, int]]) -> float:
-    nearest_d2 = min((x - cx) ** 2 + (y - cy) ** 2 for cx, cy in centers)
+def _food_probability(pos: Pos, centers: list[Pos]) -> float:
+    nearest_d2 = min((pos.x - c.x) ** 2 + (pos.y - c.y) ** 2 for c in centers)
     return cfg.FOOD_PEAK_PROBABILITY * math.exp(
         -nearest_d2 / (2 * cfg.CLUSTER_SIGMA**2)
     )
@@ -52,6 +56,28 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
     if clock.state != "stopped":
         raise HTTPException(status_code=400, detail="Game is already running")
 
+    elevation_coarse_scale = 90.0
+
+    if body.world_id is not None:
+        path = WORLDS_DIR / f"{body.world_id}.json"
+        if not path.exists():
+            raise HTTPException(status_code=404, detail="Saved world not found")
+        saved = json.loads(path.read_text())
+        seed = saved["seed"]
+        saved_config = saved.get("config", {})
+        body.num_springs = saved_config.get("num_springs", body.num_springs)
+        body.num_food_clusters = saved_config.get(
+            "num_food_clusters", body.num_food_clusters
+        )
+        body.food_peak_probability = saved_config.get(
+            "food_peak_probability", body.food_peak_probability
+        )
+        elevation_coarse_scale = saved_config.get(
+            "elevation_coarse_scale", elevation_coarse_scale
+        )
+    else:
+        seed = random.randint(0, 999999)
+
     cfg.apply_runtime(
         AGENT_COUNT=body.agent_count,
         NUM_SPRINGS=body.num_springs,
@@ -62,59 +88,65 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
         REPRODUCTION_CHANCE=body.reproduction_chance,
         SPONTANEOUS_MUTATION_RATE=body.spontaneous_mutation_rate,
     )
-    simulation.reset()
+    deps.simulation.reset()
 
-    all_cells = [(x, y) for x in range(world.width) for y in range(world.height)]
+    all_cells = [
+        Pos(x, y) for x in range(deps.world.width) for y in range(deps.world.height)
+    ]
 
-    seed = random.randint(0, 999999)
-    world.generate_elevation(seed=seed)
-    world.generate_climate(seed=seed)
+    deps.world.generate_elevation(seed=seed, coarse_scale=elevation_coarse_scale)
+    deps.world.weather.generate(seed, lambda x, y: deps.world.elevation_at(Pos(x, y)))
 
     neighbors = [(0, 1), (0, -1), (1, 0), (-1, 0)]
     peaks = [
-        (x, y)
-        for x in range(1, world.width - 1)
-        for y in range(1, world.height - 1)
+        Pos(x, y)
+        for x in range(1, deps.world.width - 1)
+        for y in range(1, deps.world.height - 1)
         if all(
-            world.elevation_at(x, y) > world.elevation_at(x + dx, y + dy)
+            deps.world.elevation_at(Pos(x, y))
+            > deps.world.elevation_at(Pos(x + dx, y + dy))
             for dx, dy in neighbors
         )
     ]
     if len(peaks) < cfg.NUM_SPRINGS:
         peaks = sorted(
-            [(x, y) for x in range(world.width) for y in range(world.height)],
-            key=lambda p: world.elevation_at(*p),
+            [
+                Pos(x, y)
+                for x in range(deps.world.width)
+                for y in range(deps.world.height)
+            ],
+            key=lambda p: deps.world.elevation_at(p),
             reverse=True,
         )
     chosen_springs = random.sample(peaks, min(cfg.NUM_SPRINGS, len(peaks)))
-    for x, y in chosen_springs:
-        world.add_spring(x, y)
-    while not all(r.complete for r in world.all_rivers()):
-        flow_rivers(world, [])
+    for pos in chosen_springs:
+        deps.world.rivers.add_spring(pos)
+    while not all(r.complete for r in deps.world.rivers.all_rivers):
+        deps.world.flow_rivers([])
 
-    river_tiles = list(world._river_tiles)
+    river_tiles = list(deps.world.rivers.all_tiles)
     centers = random.sample(river_tiles, min(cfg.NUM_FOOD_CLUSTERS, len(river_tiles)))
 
     food_placed = []
-    for x, y in all_cells:
-        if world.is_river_tile(x, y):
+    for pos in all_cells:
+        if deps.world.rivers.is_river_tile(pos):
             continue
-        if random.random() < _food_probability(x, y, centers):
-            food = world.place_food(x, y)
+        if random.random() < _food_probability(pos, centers):
+            food = deps.food.place_food(pos)
             food_placed.append(food.model_dump(mode="json"))
 
-    food_positions = [(f["x"], f["y"]) for f in food_placed]
-    world.generate_rest_quality(food_positions, seed=random.randint(0, 999999))
+    food_positions = [Pos(f["x"], f["y"]) for f in food_placed]
+    deps.world.generate_rest_quality(food_positions, seed=random.randint(0, 999999))
 
     agents_born = []
-    for x, y in random.sample(all_cells, cfg.AGENT_COUNT):
-        agent = world.add_agent(x, y, age=cfg.MATURITY_AGE)
+    for pos in random.sample(all_cells, cfg.AGENT_COUNT):
+        agent = deps.agents.add(pos, age=cfg.MATURITY_AGE)
         seed_genotype(agent)
         agents_born.append(agent.model_dump(mode="json"))
 
     rivers_formed = [
         {"river_id": str(r.id), "tiles": list(r.tiles), "complete": r.complete}
-        for r in world.all_rivers()
+        for r in deps.world.rivers.all_rivers
     ]
 
     await broadcast(
@@ -123,10 +155,10 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
             "agents": agents_born,
             "food": food_placed,
             "rivers": rivers_formed,
-            "elevation": world.all_elevation(),
-            "temperature": world.all_temperature(),
-            "precipitation": world.all_precipitation(),
-            "clouds": world.clouds_to_list(),
+            "elevation": deps.world.all_elevation(),
+            "temperature": deps.world.weather.base_temperature(),
+            "precipitation": deps.world.weather.base_precipitation(),
+            "clouds": deps.world.weather.clouds_to_list(),
         },
     )
     clock.start()

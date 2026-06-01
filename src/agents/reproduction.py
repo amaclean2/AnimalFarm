@@ -2,7 +2,8 @@ import random
 from uuid import UUID
 
 import config as _cfg
-from agent.mutations import inherit_or_mutate
+from agents import Agents
+from agents.mutations import inherit_or_mutate
 from config import (
     REPRODUCTION_HUNGER_THRESHOLD,
     REPRODUCTION_RANGE,
@@ -10,17 +11,19 @@ from config import (
 from world import World
 
 
-def reproduce(world: World, events: list[tuple[str, dict]], tick_count: int) -> int:
+def reproduce(
+    world: World, agents: Agents, events: list[tuple[str, dict]], tick_count: int
+) -> int:
     """Attempt reproduction for eligible pairs. Returns count of eligible pairs found."""
-    agents = world.all_living_agents()
+    all_agents = agents.all_living
     paired: set[UUID] = set()
     eligible_pairs = 0
 
-    for i, agent in enumerate(agents):
-        if agent.id in paired or not agent.is_eligible_to_mate():
+    for i, agent in enumerate(all_agents):
+        if agent.id in paired or not agent.is_eligible_to_mate(tick_count):
             continue
-        for other in agents[i + 1 :]:
-            if other.id in paired or not other.is_eligible_to_mate():
+        for other in all_agents[i + 1 :]:
+            if other.id in paired or not other.is_eligible_to_mate(tick_count):
                 continue
             if abs(agent.x - other.x) + abs(agent.y - other.y) > REPRODUCTION_RANGE:
                 continue
@@ -30,16 +33,18 @@ def reproduce(world: World, events: list[tuple[str, dict]], tick_count: int) -> 
 
             spawn_candidates = [
                 pos
-                for pos in world.valid_moves(agent.x, agent.y)
-                if not world.is_river_tile(*pos)
+                for pos in world.valid_moves(agent.pos)
+                if not world.rivers.is_river_tile(pos)
             ]
             if not spawn_candidates:
                 continue
 
-            sx, sy = random.choice(spawn_candidates)
-            newborn = world.add_agent(sx, sy, birth_tick=tick_count)
+            spawn_pos = random.choice(spawn_candidates)
+            newborn = agents.add(spawn_pos, birth_tick=tick_count)
             inherit_or_mutate(newborn, agent, other)
             events.append(("agent_born", {"agent": newborn.model_dump(mode="json")}))
+            agent.last_mated_tick = tick_count
+            other.last_mated_tick = tick_count
             paired.add(agent.id)
             paired.add(other.id)
             break
