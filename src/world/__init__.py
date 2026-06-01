@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from agents.agent import Agent
 
+from plant import ClimateData
 from config import (
     REST_FOOD_WEIGHT,
     REST_NOISE_WEIGHT,
@@ -16,6 +17,7 @@ from config import (
     RIVER_DIRECTION_BIAS,
     RIVER_GRAVITY_SCALE,
     RIVER_POOL_RISE_RATE,
+    temp_to_c,
 )
 from noise import value_noise_2d
 from pos import Pos
@@ -30,8 +32,9 @@ class World:
         self.width = width
         self.height = height
         self.rivers = Rivers(width, height)
-        self._rest_quality: dict[Pos, float] = {}
+        self.rest_quality_grid: list[float] = []
         self._elevation: list[float] = []
+        self._river_proximity: list[float] = []
         self.weather = WeatherSystem(width, height)
 
     def in_bounds(self, pos: Pos) -> bool:
@@ -55,12 +58,14 @@ class World:
         max_river_dist = max(river_dist.values(), default=1)
         max_food_dist = max(food_dist.values(), default=1)
 
-        for x in range(self.width):
-            for y in range(self.height):
+        self.rest_quality_grid = [0.0] * (self.width * self.height)
+
+        for y in range(self.height):
+            for x in range(self.width):
                 p = Pos(x, y)
+                idx = y * self.width + x
 
                 if self.rivers.is_river_tile(p):
-                    self._rest_quality[p] = 0.0
                     continue
 
                 coarse = value_noise_2d(x, y, scale=20.0, seed=seed)
@@ -78,10 +83,12 @@ class World:
                     + REST_RIVER_WEIGHT * river_bonus
                     + REST_FOOD_WEIGHT * food_bonus
                 )
-                self._rest_quality[p] = max(0.0, min(1.0, quality))
+                self.rest_quality_grid[idx] = max(0.0, min(1.0, quality))
 
     def rest_quality_at(self, pos: Pos) -> float:
-        return self._rest_quality.get(pos, 0.0)
+        if not self.rest_quality_grid:
+            return 0.0
+        return self.rest_quality_grid[pos.y * self.width + pos.x]
 
     def best_rest_in_vision(
         self,
@@ -103,7 +110,11 @@ class World:
                     continue
                 if sleeping_tiles and t in sleeping_tiles:
                     continue
-                quality = self._rest_quality.get(t, 0.0)
+                quality = (
+                    self.rest_quality_grid[t.y * self.width + t.x]
+                    if self.rest_quality_grid
+                    else 0.0
+                )
 
                 if quality > best_quality:
                     best_quality = quality
@@ -145,6 +156,32 @@ class World:
     def all_elevation(self) -> list[float]:
         return self._elevation
 
+    # --- Climate ---
+
+    def generate_river_proximity(self) -> None:
+        dist = self._distance_transform(self.rivers.all_tiles)
+        self._river_proximity = []
+        for y in range(self.height):
+            for x in range(self.width):
+                p = Pos(x, y)
+                d = dist.get(p, self.width + self.height)
+                self._river_proximity.append(1.0 / (1 + d))
+
+    def get_climate_at(self, x: int, y: int) -> ClimateData:
+        idx = y * self.width + x
+        return ClimateData(
+            temperature=temp_to_c(self.weather.get_temperature_at(x, y)),
+            precipitation=(
+                self.weather.base_precipitation()[idx]
+                if self.weather.base_precipitation()
+                else 0.5
+            ),
+            elevation=self._elevation[idx] if self._elevation else 0.5,
+            river_proximity=(
+                self._river_proximity[idx] if self._river_proximity else 0.0
+            ),
+        )
+
     # --- Rivers ---
 
     def _river_extend(
@@ -152,21 +189,8 @@ class World:
         river: River,
         pos: Pos,
         events: list[tuple[str, dict]],
-        food=None,
     ) -> None:
         self.rivers.extend(river, pos)
-
-        if food is not None:
-            removed_food = food.remove_food_at(pos)
-
-            if removed_food:
-                events.append(
-                    (
-                        "food_drowned",
-                        {"food_id": str(removed_food.id), "x": pos.x, "y": pos.y},
-                    )
-                )
-
         events.append(
             ("river_tile_added", {"river_id": str(river.id), "x": pos.x, "y": pos.y})
         )
@@ -176,7 +200,7 @@ class World:
                 ("river_completed", {"river_id": str(river.id), "reached_bottom": True})
             )
 
-    def flow_rivers(self, events: list[tuple[str, dict]], food=None) -> None:
+    def flow_rivers(self, events: list[tuple[str, dict]]) -> None:
         for river in self.rivers.all_rivers:
 
             if river.complete:
@@ -220,7 +244,7 @@ class World:
             if chosen_elev <= elev_head:
                 river.pool_level = 0.0
                 river.last_dx, river.last_dy = chosen.x - hx, chosen.y - hy
-                self._river_extend(river, chosen, events, food)
+                self._river_extend(river, chosen, events)
             else:
                 wall_height = chosen_elev - elev_head
                 river.pool_level += RIVER_POOL_RISE_RATE
@@ -228,10 +252,11 @@ class World:
                 if river.pool_level >= wall_height:
                     river.pool_level = 0.0
                     river.last_dx, river.last_dy = chosen.x - hx, chosen.y - hy
-                    self._river_extend(river, chosen, events, food)
+                    self._river_extend(river, chosen, events)
 
     def reset(self) -> None:
         self.rivers.clear()
-        self._rest_quality.clear()
+        self.rest_quality_grid.clear()
         self._elevation.clear()
+        self._river_proximity.clear()
         self.weather.reset()

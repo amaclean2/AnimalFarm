@@ -12,9 +12,11 @@ from config import (
     MATING_COOLDOWN,
     VISION_RANGE,
     CONTINUATION_BONUS,
+    HARVEST_CONTINUATION_BONUS,
+    WATER_URGENCY_DISTANCE_SCALE,
+    WATER_LOST_URGENCY_MULTIPLIER,
 )
 from pos import Pos
-from food import FoodItem
 from tasks import Task
 
 _NEEDS = [
@@ -82,6 +84,15 @@ _RELEVANCE: dict[str, dict[str, float]] = {
         "reproduction": 0.1,
         "curiosity": 1.0,
     },
+    "thirst_explore": {
+        "hunger": 0.0,
+        "thirst": 1.0,
+        "rest": -0.3,
+        "safety": -0.3,
+        "social": -0.1,
+        "reproduction": 0.0,
+        "curiosity": 0.0,
+    },
 }
 
 
@@ -98,17 +109,22 @@ class Agent(BaseModel):
     genotype: dict[str, int] = Field(default_factory=dict)
     mutations: list[str] = Field(default_factory=list)
 
-    group_id: UUID | None = None
-    carried_food: FoodItem | None = None
+    carried_food: int = 0
+
+    harvest_target: UUID | None = None
+    harvest_ticks: int = 0
 
     last_mated_tick: int = -(MATING_COOLDOWN + 1)
 
     direction: tuple[int, int] | None = None
     active_task: Task | None = None
     path: list[Pos] = Field(default_factory=list)
-    last_decision_tick: int = 0
+    next_decision_tick: int = 0
+    planned_steps: list[Pos] = Field(default_factory=list)
     explore_target: Pos | None = None
     explore_target_tick: int = 0
+    thirst_explore_target: Pos | None = None
+    thirst_explore_target_tick: int = 0
     rest_target: Pos | None = None
 
     needs: NeedState = Field(default_factory=NeedState)
@@ -169,9 +185,17 @@ class Agent(BaseModel):
         self.alive = False
         self.active_task = None
         self.path = []
+        self.planned_steps = []
+        self.harvest_target = None
+        self.harvest_ticks = 0
 
     def should_die(self) -> bool:
-        return self.hunger <= 0 or self.needs.rest <= 0 or self.age >= _cfg.MAX_AGE
+        return (
+            self.hunger <= 0
+            or self.needs.water <= 0
+            or self.needs.rest <= 0
+            or self.age >= _cfg.MAX_AGE
+        )
 
     def continue_sleeping(self) -> bool:
         """If already sleeping and still needs rest, keep sleeping and return True.
@@ -185,9 +209,14 @@ class Agent(BaseModel):
 
         return False
 
-    def try_fall_asleep(self, at_rest_target: bool) -> bool:
+    def try_fall_asleep(self, at_rest_target: bool, is_river: bool = False) -> bool:
         """Transition to sleeping if the current task calls for it. Returns True if now sleeping."""
-        if self.active_task and self.active_task.name == "sleep" and at_rest_target:
+        if (
+            self.active_task
+            and self.active_task.name == "sleep"
+            and at_rest_target
+            and not is_river
+        ):
             self.needs.is_sleeping = True
             return True
 
@@ -200,17 +229,17 @@ class Agent(BaseModel):
     ) -> None:
         self.needs.tick(is_night, tile_quality, temperature)
 
-    def apply_hunger_drain(self, is_river: bool, is_lone: bool) -> None:
-        self.needs.apply_hunger_drain(self.age, self.is_adult, is_river, is_lone)
+    def apply_hunger_drain(self, is_river: bool) -> None:
+        self.needs.apply_hunger_drain(self.age, self.is_adult, is_river)
 
     def drain_uphill(self, elev_gain: float) -> None:
         self.needs.drain_uphill(elev_gain)
 
     # --- memory delegation ---
 
-    def update_food_memory(self, food_targets: list[FoodItem], tick: int) -> None:
-        for food in food_targets:
-            self.memory.observe(food.pos, "food", float(food.value), tick)
+    def update_food_memory(self, plant_targets: list, tick: int) -> None:
+        for plant in plant_targets:
+            self.memory.observe(plant.pos, "food", 1.0, tick)
 
     def update_water_memory(self, visible_water: list[Pos], tick: int) -> None:
         for pos in visible_water:
@@ -289,34 +318,56 @@ class Agent(BaseModel):
         is_night: bool,
         mate_pos: Pos | None,
         explore_goal: Pos,
+        thirst_explore_goal: Pos,
         tick: int,
         rest_target: Pos | None = None,
+        harvesting: bool = False,
     ) -> Task:
         urgencies = self.needs.urgency_vector()
         food_target = self.memory.query("food", tick, urgency=urgencies["hunger"])
         water_target = self.memory.query("water", tick, urgency=urgencies["thirst"])
+
+        if water_target:
+            dist = abs(water_target.x - self.x) + abs(water_target.y - self.y)
+            # Knowing where water is brings comfort — urgency scales down when nearby,
+            # approaching normal as distance grows. Floor prevents comfort from
+            # overriding critical thirst: a 90%-depleted agent keeps 90% of raw urgency.
+            comfort = 0.2 + 0.8 * dist / (dist + WATER_URGENCY_DISTANCE_SCALE)
+            urgencies["thirst"] = max(
+                urgencies["thirst"] * comfort,
+                urgencies["thirst"] * (1.0 - self.needs.water),
+            )
+        else:
+            # No perception of water — amplify urgency; hunger capped so thirst_explore wins
+            urgencies["thirst"] = min(
+                1.0, urgencies["thirst"] * WATER_LOST_URGENCY_MULTIPLIER
+            )
+            urgencies["hunger"] = min(urgencies["hunger"], urgencies["thirst"] * 0.5)
 
         candidates = self._feasible_actions(
             food_target, water_target, mate_pos, rest_target
         )
 
         best_action, best_score = "explore", float("-inf")
+
         for action in candidates:
             score = sum(urgencies[need] * _RELEVANCE[action][need] for need in _NEEDS)
 
             if self.active_task and self.active_task.name == action:
                 score += CONTINUATION_BONUS
+                if harvesting and action == "seek_food":
+                    score += HARVEST_CONTINUATION_BONUS
 
             if score > best_score:
                 best_score, best_action = score, action
 
-        self.last_decision_tick = tick
         return self._resolve_task(
             best_action,
             food_target,
             water_target,
             mate_pos,
             explore_goal,
+            thirst_explore_goal,
             rest_target,
         )
 
@@ -337,8 +388,12 @@ class Agent(BaseModel):
 
         if water_target:
             actions.append("drink")
+        else:
+            actions.append("thirst_explore")
 
-        if rest_target and self.needs.rest < 1.0:
+        if self.needs.rest < 1.0 and (
+            rest_target or self.needs.rest <= _cfg.REST_SAFETY_BUFFER_FRAC * 2
+        ):
             actions.append("sleep")
 
         if mate_pos:
@@ -353,14 +408,17 @@ class Agent(BaseModel):
         water: Pos | None,
         mate: Pos | None,
         explore: Pos,
+        thirst_explore: Pos,
         rest: Pos | None = None,
     ) -> Task:
+        if action == "sleep":
+            return Task(priority=0, name="sleep", goal_pos=rest or self.pos)
         goal: Pos | None = {
             "seek_food": food,
             "drink": water,
-            "sleep": rest,
             "mate": mate,
             "explore": explore,
+            "thirst_explore": thirst_explore,
         }.get(action, explore)
         return Task(priority=0, name=action, goal_pos=goal or explore)
 
@@ -381,3 +439,24 @@ class Agent(BaseModel):
             self.explore_target_tick = tick
 
         return self.explore_target
+
+    def thirst_explore_goal(
+        self, world_width: int, world_height: int, tick: int = 0
+    ) -> Pos:
+        arrived = self.thirst_explore_target is not None and (
+            abs(self.x - self.thirst_explore_target.x)
+            + abs(self.y - self.thirst_explore_target.y)
+            <= 3
+        )
+        stale = tick - self.thirst_explore_target_tick > 80
+
+        if self.thirst_explore_target is None or arrived or stale:
+            angle = random.uniform(0, 2 * math.pi)
+            dist = random.randint(40, 70)
+            self.thirst_explore_target = Pos(
+                max(0, min(world_width - 1, int(self.x + dist * math.cos(angle)))),
+                max(0, min(world_height - 1, int(self.y + dist * math.sin(angle)))),
+            )
+            self.thirst_explore_target_tick = tick
+
+        return self.thirst_explore_target

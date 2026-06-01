@@ -12,10 +12,21 @@ DAY_LENGTH = int(os.getenv("DAY_LENGTH", "60"))
 class GameClock:
     def __init__(self, interval: float = TICK_INTERVAL) -> None:
         self.interval = interval
+        self.target_gap = interval
         self.tick_count: int = 0
         self._state: Literal["stopped", "running", "paused"] = "stopped"
         self._task: asyncio.Task | None = None
         self._callbacks: list[TickCallback] = []
+
+    def set_target_gap(self, gap_s: float) -> None:
+        self.target_gap = max(0.05, gap_s)
+        self.interval = self.target_gap
+
+    def adjust_from_observed_gap(self, observed_gap_s: float) -> None:
+        if self.tick_count <= 500:
+            return
+        sim_time_s = observed_gap_s - self.interval
+        self.interval = max(0.05, self.target_gap - sim_time_s)
 
     @property
     def state(self) -> Literal["stopped", "running", "paused"]:

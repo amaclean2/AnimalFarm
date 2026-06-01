@@ -9,10 +9,6 @@ from pathlib import Path
 
 AGENT_COUNT = 8
 NUM_SPRINGS = 3
-NUM_FOOD_CLUSTERS = 4
-CLUSTER_SIGMA = 6.0
-FOOD_PEAK_PROBABILITY = 0.2
-
 CLIMATE_COARSE_SCALE = 50.0
 CLIMATE_MEDIUM_SCALE = 20.0
 TEMP_ELEVATION_COUPLING = 0.4
@@ -26,6 +22,21 @@ CLOUD_SPEED_MAX = 0.3
 CLOUD_PRECIP_STRENGTH = 0.7
 CLOUD_TEMP_REDUCTION = 0.25
 
+TEMP_MIN_C = -10.0  # temperature at normalized value 0
+TEMP_MAX_C = 40.0  # temperature at normalized value 1
+DIURNAL_AMPLITUDE = 0.1  # normalized temperature swing peak-to-trough (= 5 °C)
+PLANT_SHADE = 0.08  # normalized temp reduction on the plant tile (= 4 °C)
+PLANT_SHADE_ADJACENT = (
+    0.03  # normalized temp reduction on immediately adjacent tiles (= 1.5 °C)
+)
+
+ELEV_MAX_M = 2000  # elevation at normalized value 1 (metres)
+
+
+def temp_to_c(t: float) -> float:
+    return TEMP_MIN_C + t * (TEMP_MAX_C - TEMP_MIN_C)
+
+
 # ── Agent lifecycle ───────────────────────────────────────────────────────────
 
 MAX_AGE = 800
@@ -38,10 +49,11 @@ VISION_RANGE = 20
 HUNGER_BASE_DRAIN = 0.01  # adult hunger drain per tick
 HUNGER_INFANT_MULTIPLIER = 2.0  # infant drains this × base (scales to 1× at maturity)
 HUNGER_RIVER_MULTIPLIER = 2.0  # river tile multiplies hunger drain
-HUNGER_LONE_MULTIPLIER = 2.0  # being alone multiplies hunger drain
 EAT_RESTORE = 0.20  # hunger restored per meal (~5 meals to go 0 → full)
 
 WATER_BASE_DRAIN = 0.01
+WATER_URGENCY_DISTANCE_SCALE = 15.0  # tiles at which comfort reaches ~60% (asymptotic)
+WATER_LOST_URGENCY_MULTIPLIER = 3.0  # urgency multiplier when no water source is known
 DRINK_RESTORE = 0.20  # water restored per drink (~5 drinks to go 0 → full)
 
 REST_BASE_DRAIN = 0.005
@@ -73,33 +85,26 @@ MATING_COOLDOWN = 10  # ticks an agent must wait before mating again
 # ── Decision making ───────────────────────────────────────────────────────────
 
 CONTINUATION_BONUS = 0.15  # urgency bonus for staying on the current task
+HARVEST_COST: dict[str, int] = {
+    "date_palm": 6,
+    "wild_plum": 2,
+    "fig_tree": 4,
+    "berry_bush": 3,
+    "bilberry": 5,
+}
+HARVEST_CONTINUATION_BONUS = 0.25
+DECISION_STRIDE = 2  # ticks between full agent decisions
+PLAN_HORIZON = 2  # steps produced per decision
 
 # ── Movement ─────────────────────────────────────────────────────────────────
 
 FOOD_BASE_WEIGHT = 4.0
 FOOD_HUNGER_BONUS = 4.0
 FOOD_MEMORY_WEIGHT = 1.5
-SOCIAL_COHESION_WEIGHT = 2.0
-SOCIAL_FRINGE_WEIGHT = 4.0
-SOCIAL_LONE_WEIGHT = 1.5
 WANDER_WEIGHT = 0.15
 MOMENTUM_WEIGHT = 0.3
 
-# ── Groups ────────────────────────────────────────────────────────────────────
-
-BASE_GRAVITY = 1.0
-BASE_COHESION = 5.0
-ATTRACTION_MULTIPLIER = 2.0
-VISION_BONUS = 1.5  # vision range multiplier when inside group cohesion radius
-
 # ── Ecology ───────────────────────────────────────────────────────────────────
-
-FOOD_REGROW_TICKS = 40
-FOOD_SPREAD_SIGMA = 20.0
-FOOD_SPREAD_CANDIDATES = 50
-FOOD_WATER_WEIGHT = 2.0
-FOOD_CLUSTER_WEIGHT = 1.0
-FOOD_SCORE_FLOOR = 0.01
 
 RIVER_GRAVITY_SCALE = 10.0  # exp scale for elevation-based flow weighting
 RIVER_DIRECTION_BIAS = 0.1  # effective-delta bonus for continuing in the same direction

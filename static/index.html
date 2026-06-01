@@ -22,8 +22,7 @@
           Day: <span id="day-number">1</span> <span id="day-icon">☀️</span>
         </div>
         <div class="stat">Agents: <span id="agent-count">0</span></div>
-        <div class="stat">Food: <span id="food-count">0</span></div>
-        <div class="stat">Groups: <span id="group-count">0</span></div>
+        <div class="stat">Plants: <span id="plant-count">0</span></div>
       </div>
       <div class="controls">
         <button id="btn-start">▶ Start Game</button>
@@ -38,6 +37,19 @@
         <button id="btn-next-agent" disabled>⟳ Next Agent</button>
         <button id="btn-stats">📊 Stats</button>
         <button id="btn-fullscreen">⛶ Fullscreen</button>
+      </div>
+      <div class="speed-row">
+        <span class="speed-label">Slow</span>
+        <input
+          type="range"
+          id="speed-slider"
+          min="1"
+          max="10"
+          step="1"
+          value="5"
+        />
+        <span class="speed-label">Fast</span>
+        <span id="speed-val">0.35s</span>
       </div>
       <div id="status">Connecting…</div>
     </div>
@@ -100,54 +112,6 @@
               <span
                 class="info-icon"
                 data-tooltip="Number of river paths flowing across the world"
-                >i</span
-              >
-            </div>
-            <div class="config-row">
-              <label for="cfg-num-food-clusters">Food Clusters</label>
-              <div class="config-controls">
-                <input
-                  type="range"
-                  id="cfg-num-food-clusters-range"
-                  min="1"
-                  max="12"
-                  step="1"
-                />
-                <input
-                  type="number"
-                  id="cfg-num-food-clusters"
-                  min="1"
-                  max="12"
-                  step="1"
-                />
-              </div>
-              <span
-                class="info-icon"
-                data-tooltip="Number of regions where food items spawn each tick"
-                >i</span
-              >
-            </div>
-            <div class="config-row">
-              <label for="cfg-food-peak-probability">Food Abundance</label>
-              <div class="config-controls">
-                <input
-                  type="range"
-                  id="cfg-food-peak-probability-range"
-                  min="0.05"
-                  max="1"
-                  step="0.05"
-                />
-                <input
-                  type="number"
-                  id="cfg-food-peak-probability"
-                  min="0.05"
-                  max="1"
-                  step="0.05"
-                />
-              </div>
-              <span
-                class="info-icon"
-                data-tooltip="How dense food spawning is at cluster centres (0 = sparse, 1 = dense)"
                 >i</span
               >
             </div>
@@ -291,6 +255,11 @@
     <div id="agent-panel" class="hidden">
       <div id="agent-panel-title">Selected Agent</div>
       <div id="agent-panel-body"></div>
+    </div>
+
+    <div id="tile-panel" class="hidden">
+      <div id="tile-panel-title">Tile</div>
+      <div id="tile-panel-body"></div>
     </div>
 
     <div id="hint"></div>

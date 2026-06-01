@@ -1,9 +1,8 @@
-import math
 import random
 
 import config as cfg
 
-from food import FoodManager
+from plant import VegetationManager
 from pos import Pos
 from world import World
 
@@ -11,12 +10,9 @@ from world import World
 def build_preview(
     seed: int,
     num_springs: int,
-    num_food_clusters: int,
-    food_peak_probability: float,
     elevation_coarse_scale: float,
 ) -> dict:
     preview = World(100, 100)
-    food = FoodManager(preview)
     preview.generate_elevation(seed=seed, coarse_scale=elevation_coarse_scale)
     preview.weather.generate(seed, lambda x, y: preview.elevation_at(Pos(x, y)))
 
@@ -39,30 +35,14 @@ def build_preview(
         )
 
     chosen_springs = random.sample(peaks, min(num_springs, len(peaks)))
-
     for pos in chosen_springs:
         preview.rivers.add_spring(pos)
-
     while not all(r.complete for r in preview.rivers.all_rivers):
         preview.flow_rivers([])
 
-    river_tiles = list(preview.rivers.all_tiles)
-    centers = random.sample(river_tiles, min(num_food_clusters, len(river_tiles)))
-
-    food_placed = []
-
-    for x in range(preview.width):
-        for y in range(preview.height):
-            if preview.rivers.is_river_tile(Pos(x, y)):
-                continue
-            nearest_d2 = min((x - c.x) ** 2 + (y - c.y) ** 2 for c in centers)
-            prob = food_peak_probability * math.exp(
-                -nearest_d2 / (2 * cfg.CLUSTER_SIGMA**2)
-            )
-
-            if random.random() < prob:
-                food.place_food(Pos(x, y))
-                food_placed.append({"x": x, "y": y})
+    preview.generate_river_proximity()
+    vegetation = VegetationManager(preview)
+    plants_placed = vegetation.place_plants(seed)
 
     return {
         "width": preview.width,
@@ -73,6 +53,8 @@ def build_preview(
             {"river_id": str(r.id), "tiles": [list(t) for t in r.tiles]}
             for r in preview.rivers.all_rivers
         ],
-        "food": food_placed,
+        "plants": [
+            {"x": p.x, "y": p.y, "plant_type": p.plant_type} for p in plants_placed
+        ],
         "clouds": preview.weather.clouds_to_list(),
     }

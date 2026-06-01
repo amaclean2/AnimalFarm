@@ -1,5 +1,4 @@
 import json
-import math
 import random
 from pathlib import Path
 
@@ -22,19 +21,10 @@ class StartConfig(BaseModel):
     world_id: str | None = None
     agent_count: int | None = None
     num_springs: int | None = None
-    num_food_clusters: int | None = None
-    food_peak_probability: float | None = None
     max_age: int | None = None
     hunger_base_drain: float | None = None
     reproduction_chance: float | None = None
     spontaneous_mutation_rate: float | None = None
-
-
-def _food_probability(pos: Pos, centers: list[Pos]) -> float:
-    nearest_d2 = min((pos.x - c.x) ** 2 + (pos.y - c.y) ** 2 for c in centers)
-    return cfg.FOOD_PEAK_PROBABILITY * math.exp(
-        -nearest_d2 / (2 * cfg.CLUSTER_SIGMA**2)
-    )
 
 
 @router.get("/config")
@@ -42,8 +32,6 @@ def get_config() -> dict:
     return {
         "agent_count": cfg.AGENT_COUNT,
         "num_springs": cfg.NUM_SPRINGS,
-        "num_food_clusters": cfg.NUM_FOOD_CLUSTERS,
-        "food_peak_probability": cfg.FOOD_PEAK_PROBABILITY,
         "max_age": cfg.MAX_AGE,
         "hunger_base_drain": cfg.HUNGER_BASE_DRAIN,
         "reproduction_chance": cfg.REPRODUCTION_CHANCE,
@@ -66,12 +54,6 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
         seed = saved["seed"]
         saved_config = saved.get("config", {})
         body.num_springs = saved_config.get("num_springs", body.num_springs)
-        body.num_food_clusters = saved_config.get(
-            "num_food_clusters", body.num_food_clusters
-        )
-        body.food_peak_probability = saved_config.get(
-            "food_peak_probability", body.food_peak_probability
-        )
         elevation_coarse_scale = saved_config.get(
             "elevation_coarse_scale", elevation_coarse_scale
         )
@@ -81,8 +63,6 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
     cfg.apply_runtime(
         AGENT_COUNT=body.agent_count,
         NUM_SPRINGS=body.num_springs,
-        NUM_FOOD_CLUSTERS=body.num_food_clusters,
-        FOOD_PEAK_PROBABILITY=body.food_peak_probability,
         MAX_AGE=body.max_age,
         HUNGER_BASE_DRAIN=body.hunger_base_drain,
         REPRODUCTION_CHANCE=body.reproduction_chance,
@@ -124,19 +104,11 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
     while not all(r.complete for r in deps.world.rivers.all_rivers):
         deps.world.flow_rivers([])
 
-    river_tiles = list(deps.world.rivers.all_tiles)
-    centers = random.sample(river_tiles, min(cfg.NUM_FOOD_CLUSTERS, len(river_tiles)))
+    deps.world.generate_river_proximity()
 
-    food_placed = []
-    for pos in all_cells:
-        if deps.world.rivers.is_river_tile(pos):
-            continue
-        if random.random() < _food_probability(pos, centers):
-            food = deps.food.place_food(pos)
-            food_placed.append(food.model_dump(mode="json"))
-
-    food_positions = [Pos(f["x"], f["y"]) for f in food_placed]
-    deps.world.generate_rest_quality(food_positions, seed=random.randint(0, 999999))
+    plants_placed = deps.vegetation.place_plants(seed)
+    plant_positions = [Pos(p.x, p.y) for p in plants_placed]
+    deps.world.generate_rest_quality(plant_positions, seed=random.randint(0, 999999))
 
     agents_born = []
     for pos in random.sample(all_cells, cfg.AGENT_COUNT):
@@ -153,7 +125,7 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
         "game_started",
         {
             "agents": agents_born,
-            "food": food_placed,
+            "plants": [p.model_dump(mode="json") for p in plants_placed],
             "rivers": rivers_formed,
             "elevation": deps.world.all_elevation(),
             "temperature": deps.world.weather.base_temperature(),

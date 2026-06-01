@@ -7,11 +7,11 @@ import {
 } from "./constants.js";
 import {
   agents,
-  food,
+  plants,
   rivers,
-  groups,
   getClockState,
   getSelectedAgentId,
+  getSelectedTile,
   getTickMs,
   getDayPhase,
   getElevationAt,
@@ -229,7 +229,23 @@ const drawRestMemory = (agent) => {
   ctx.strokeRect(screenX, screenY, viewport.cellSize, viewport.cellSize);
 };
 
-const drawFood = (visibleFoodIds) => {
+const HARVEST_COSTS = {
+  date_palm: 6,
+  wild_plum: 2,
+  fig_tree: 4,
+  berry_bush: 3,
+  bilberry: 5,
+};
+
+const PLANT_COLORS = {
+  date_palm: "#c8a84b",
+  wild_plum: "#2ecc71",
+  fig_tree: "#27ae60",
+  berry_bush: "#8e44ad",
+  bilberry: "#7f8c8d",
+};
+
+const drawPlants = (visiblePlantIds) => {
   const colStart = Math.floor(camera.x / viewport.cellSize);
   const colEnd = Math.min(
     Math.ceil((camera.x + canvas.width) / viewport.cellSize),
@@ -241,28 +257,38 @@ const drawFood = (visibleFoodIds) => {
     WORLD_HEIGHT,
   );
 
-  for (const foodItem of food.values()) {
+  for (const plant of plants.values()) {
     if (
-      foodItem.x < colStart ||
-      foodItem.x >= colEnd ||
-      foodItem.y < rowStart ||
-      foodItem.y >= rowEnd
+      plant.x < colStart ||
+      plant.x >= colEnd ||
+      plant.y < rowStart ||
+      plant.y >= rowEnd
     )
       continue;
 
-    const screenX = foodItem.x * viewport.cellSize - camera.x;
-    const screenY = foodItem.y * viewport.cellSize - camera.y;
-    const isHighlighted = visibleFoodIds.has(foodItem.id);
-    ctx.fillStyle = isHighlighted ? "#f1c40f" : "#27ae60";
+    const fill = Math.min(1, plant.fruit_count / plant.max_fruit);
+    if (fill <= 0) continue;
+
+    const screenX = plant.x * viewport.cellSize - camera.x;
+    const screenY = plant.y * viewport.cellSize - camera.y;
+    const isHighlighted = visiblePlantIds.has(plant.id);
+    const baseColor = PLANT_COLORS[plant.plant_type] ?? "#27ae60";
+    const minR = viewport.cellSize * 0.08;
+    const maxR = viewport.cellSize * (isHighlighted ? 0.2 : 0.15);
+    const radius = minR + fill * (maxR - minR);
+
+    ctx.globalAlpha = isHighlighted ? 1.0 : 0.55 + fill * 0.45;
+    ctx.fillStyle = isHighlighted ? "#f1c40f" : baseColor;
     ctx.beginPath();
     ctx.arc(
       screenX + viewport.cellSize / 2,
       screenY + viewport.cellSize / 2,
-      isHighlighted ? viewport.cellSize * 0.17 : viewport.cellSize * 0.13,
+      radius,
       0,
       Math.PI * 2,
     );
     ctx.fill();
+    ctx.globalAlpha = 1.0;
   }
 };
 
@@ -335,6 +361,28 @@ const drawLivingAgents = () => {
     ctx.strokeStyle = "rgba(255,255,255,0.15)";
     ctx.lineWidth = 1;
     ctx.stroke();
+
+    if (agent.harvest_target) {
+      const harvestPlant = plants.get(agent.harvest_target);
+      const cost = harvestPlant
+        ? (HARVEST_COSTS[harvestPlant.plant_type] ?? 3)
+        : 3;
+      const progress = Math.min(1, agent.harvest_ticks / cost);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(
+        centerX,
+        centerY,
+        viewport.cellSize * 0.4,
+        -Math.PI / 2,
+        -Math.PI / 2 + progress * Math.PI * 2,
+      );
+      ctx.strokeStyle = "#f1c40f";
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.85;
+      ctx.stroke();
+      ctx.restore();
+    }
 
     if (agent.carried_food) {
       const dotX = centerX + viewport.cellSize * 0.18;
@@ -460,6 +508,23 @@ const drawClouds = () => {
 let lastFrameTime = 0;
 let lastDrawTime = 0;
 
+const drawSelectedTile = () => {
+  const tile = getSelectedTile();
+  if (!tile) return;
+
+  const screenX = tile.x * viewport.cellSize - camera.x;
+  const screenY = tile.y * viewport.cellSize - camera.y;
+  const size = viewport.cellSize;
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(screenX + 1, screenY + 1, size - 2, size - 2);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+  ctx.fillRect(screenX + 1, screenY + 1, size - 2, size - 2);
+  ctx.restore();
+};
+
 const drawTimes = [];
 const DRAW_SAMPLE = 10;
 
@@ -501,21 +566,17 @@ const frame = (now) => {
 
   const selectedId = getSelectedAgentId();
   const selectedAgent = selectedId ? agents.get(selectedId) : null;
-  const visionRadius = selectedAgent
-    ? selectedAgent.group_id
-      ? Math.round(selectedAgent.vision_range * 1.5)
-      : selectedAgent.vision_range
-    : 0;
+  const visionRadius = selectedAgent ? selectedAgent.vision_range : 0;
 
-  const visibleFoodIds = new Set();
+  const visiblePlantIds = new Set();
   if (selectedAgent) {
-    for (const foodItem of food.values()) {
+    for (const plant of plants.values()) {
       if (
-        Math.abs(foodItem.x - selectedAgent.x) +
-          Math.abs(foodItem.y - selectedAgent.y) <=
+        Math.abs(plant.x - selectedAgent.x) +
+          Math.abs(plant.y - selectedAgent.y) <=
         visionRadius
       ) {
-        visibleFoodIds.add(foodItem.id);
+        visiblePlantIds.add(plant.id);
       }
     }
   }
@@ -528,10 +589,11 @@ const frame = (now) => {
   if (selectedAgent) drawVision(selectedAgent, visionRadius);
   if (selectedAgent) drawRestMemory(selectedAgent);
 
-  drawFood(visibleFoodIds);
+  drawPlants(visiblePlantIds);
   drawLivingAgents();
   drawClouds();
   drawNightOverlay();
+  drawSelectedTile();
   drawPrompt();
 
   recordDrawTime(performance.now() - drawStart);

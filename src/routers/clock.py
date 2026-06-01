@@ -1,6 +1,7 @@
 import config as cfg
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 import deps
 from clock import clock
@@ -43,12 +44,31 @@ async def resume_clock() -> None:
     clock.resume()
 
 
+class SpeedBody(BaseModel):
+    interval: float
+
+
+@router.post("/speed", status_code=204)
+async def set_speed(body: SpeedBody) -> None:
+    clock.set_target_gap(max(0.05, min(2.0, body.interval)))
+
+
+class ObservedGapBody(BaseModel):
+    gap_ms: float
+
+
+@router.post("/observed-gap", status_code=204)
+async def post_observed_gap(body: ObservedGapBody) -> None:
+    if clock.state == "running":
+        clock.adjust_from_observed_gap(body.gap_ms / 1000.0)
+
+
 @router.get("")
 async def get_clock() -> dict:
     return {
         "state": clock.state,
         "tick_count": clock.tick_count,
-        "interval": clock.interval,
+        "interval": clock.target_gap,
         "is_night": clock.is_night,
         "day_number": clock.day_number,
         "day_phase": clock.day_phase,

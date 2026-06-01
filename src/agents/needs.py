@@ -7,7 +7,6 @@ from config import (
     HUNGER_BASE_DRAIN,
     HUNGER_INFANT_MULTIPLIER,
     HUNGER_RIVER_MULTIPLIER,
-    HUNGER_LONE_MULTIPLIER,
     HILL_ENERGY_MULTIPLIER,
     EAT_RESTORE,
     WATER_BASE_DRAIN,
@@ -18,6 +17,8 @@ from config import (
     REST_RESTORE_MIN,
     REST_RESTORE_MAX,
     REPRODUCTION_HUNGER_THRESHOLD,
+    TEMP_MIN_C,
+    TEMP_MAX_C,
 )
 
 
@@ -33,7 +34,7 @@ class NeedState(BaseModel):
         self,
         is_night: bool,
         tile_quality: float = 1.0,
-        temperature: float = 0.5,
+        temperature: float = 15.0,
     ) -> None:
         self._tick_rest(is_night, tile_quality, temperature)
 
@@ -41,7 +42,7 @@ class NeedState(BaseModel):
             self.water = max(0.0, self.water - WATER_BASE_DRAIN)
 
     def _tick_rest(
-        self, is_night: bool, tile_quality: float = 1.0, temperature: float = 0.5
+        self, is_night: bool, tile_quality: float = 1.0, temperature: float = 15.0
     ) -> None:
         if self.is_sleeping:
             restore = REST_RESTORE_MIN + tile_quality * (
@@ -50,7 +51,8 @@ class NeedState(BaseModel):
             self.rest = min(1.0, self.rest + restore)
         else:
             base = REST_BASE_DRAIN * (self.night_drain_multiplier if is_night else 1.0)
-            cold_mult = 1.0 + (REST_COLD_MULTIPLIER - 1.0) * (1.0 - temperature)
+            temp_norm = (temperature - TEMP_MIN_C) / (TEMP_MAX_C - TEMP_MIN_C)
+            cold_mult = 1.0 + (REST_COLD_MULTIPLIER - 1.0) * (1.0 - temp_norm)
             self.rest = max(0.0, self.rest - base * cold_mult)
 
     def eat(self) -> None:
@@ -65,9 +67,7 @@ class NeedState(BaseModel):
         if extra > 0:
             self.hunger = max(0.0, self.hunger - extra)
 
-    def apply_hunger_drain(
-        self, age: int, is_adult: bool, is_river: bool, is_lone: bool
-    ) -> None:
+    def apply_hunger_drain(self, age: int, is_adult: bool, is_river: bool) -> None:
         if is_adult:
             age_mult = 1.0
         else:
@@ -75,8 +75,7 @@ class NeedState(BaseModel):
             age_mult = HUNGER_INFANT_MULTIPLIER + (1.0 - HUNGER_INFANT_MULTIPLIER) * t
         base = HUNGER_BASE_DRAIN * age_mult * self.metabolism
         river_mult = HUNGER_RIVER_MULTIPLIER if is_river else 1.0
-        lone_mult = HUNGER_LONE_MULTIPLIER if is_lone else 1.0
-        self.hunger -= base * river_mult * lone_mult
+        self.hunger -= base * river_mult
 
     def urgency_vector(self) -> dict[str, float]:
         h = self._hunger_urgency()
@@ -93,10 +92,10 @@ class NeedState(BaseModel):
         }
 
     def _hunger_urgency(self) -> float:
-        return min(1.0, (1.0 - self.hunger) ** 0.5)
+        return max(0.0, 1.0 - self.hunger * 2) ** 0.5
 
     def _thirst_urgency(self) -> float:
-        return min(1.0, (1.0 - self.water) ** 2)
+        return min(1.0, (1.0 - self.water) ** 1.5)
 
     def _rest_urgency(self) -> float:
         return self._logistic(1.0 - self.rest, steepness=10, midpoint=0.6)

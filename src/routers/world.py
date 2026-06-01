@@ -20,19 +20,13 @@ WORLDS_DIR = Path(__file__).parent.parent.parent / "worlds"
 async def preview_world_get() -> dict:
     seed = random.randint(0, 999999)
     return build_preview(
-        seed=seed,
-        num_springs=cfg.NUM_SPRINGS,
-        num_food_clusters=cfg.NUM_FOOD_CLUSTERS,
-        food_peak_probability=cfg.FOOD_PEAK_PROBABILITY,
-        elevation_coarse_scale=90.0,
+        seed=seed, num_springs=cfg.NUM_SPRINGS, elevation_coarse_scale=90.0
     )
 
 
 class PreviewConfig(BaseModel):
     seed: int | None = None
     num_springs: int = cfg.NUM_SPRINGS
-    num_food_clusters: int = cfg.NUM_FOOD_CLUSTERS
-    food_peak_probability: float = cfg.FOOD_PEAK_PROBABILITY
     elevation_coarse_scale: float = 90.0
 
 
@@ -42,8 +36,6 @@ async def preview_world_post(body: PreviewConfig) -> dict:
     return build_preview(
         seed=seed,
         num_springs=body.num_springs,
-        num_food_clusters=body.num_food_clusters,
-        food_peak_probability=body.food_peak_probability,
         elevation_coarse_scale=body.elevation_coarse_scale,
     )
 
@@ -104,12 +96,11 @@ async def get_world() -> dict:
         "width": deps.world.width,
         "height": deps.world.height,
         "agents": [a.model_dump(mode="json") for a in deps.agents.all()],
-        "food": [f.model_dump(mode="json") for f in deps.food.all_food],
+        "plants": [p.model_dump(mode="json") for p in deps.vegetation.all_plants],
         "rivers": [
             {"river_id": str(r.id), "tiles": list(r.tiles), "complete": r.complete}
             for r in deps.world.rivers.all_rivers
         ],
-        "groups": [{"id": str(g.id)} for g in deps.agents.all_groups],
         "elevation": deps.world.all_elevation(),
         "temperature": deps.world.weather.base_temperature(),
         "precipitation": deps.world.weather.base_precipitation(),

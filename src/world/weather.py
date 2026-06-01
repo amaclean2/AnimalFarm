@@ -13,6 +13,7 @@ from config import (
     CLOUD_RADIUS_MIN,
     CLOUD_SPEED_MAX,
     CLOUD_TEMP_REDUCTION,
+    DIURNAL_AMPLITUDE,
     TEMP_ELEVATION_COUPLING,
 )
 from noise import value_noise_2d
@@ -99,13 +100,13 @@ class CloudSystem:
         while len(self._clouds) < CLOUD_COUNT:
             self._spawn()
 
-    def precipitation_at(self, x: int, y: int, base: float) -> float:
+    def _get_precipitation_at(self, x: int, y: int, base: float) -> float:
         total = sum(
             c.contribution_at(x, y, self.width, self.height) for c in self._clouds
         )
         return min(1.0, base + CLOUD_PRECIP_STRENGTH * min(1.0, total))
 
-    def temperature_at(self, x: int, y: int, base: float) -> float:
+    def _get_temperature_at(self, x: int, y: int, base: float) -> float:
         total = sum(
             c.contribution_at(x, y, self.width, self.height) for c in self._clouds
         )
@@ -133,6 +134,20 @@ class WeatherSystem:
         self._temperature: list[float] = []
         self._precipitation: list[float] = []
         self._clouds = CloudSystem(width, height)
+        self._day_phase: float = 0.0
+        self.temperature_grid: list[float] = []
+
+    def set_day_phase(self, phase: float) -> None:
+        self._day_phase = phase
+        if self._temperature:
+            self.rebuild_temperature_grid()
+
+    def rebuild_temperature_grid(self) -> None:
+        self.temperature_grid = [
+            self.get_temperature_at(x, y)
+            for y in range(self.height)
+            for x in range(self.width)
+        ]
 
     def generate(self, seed: int, elevation_at: Callable[[int, int], float]) -> None:
         self._temperature = []
@@ -152,21 +167,26 @@ class WeatherSystem:
 
         self._clouds.reset()
         self._clouds.seed()
+        self.rebuild_temperature_grid()
 
     def tick(self) -> None:
         self._clouds.tick()
 
-    def temperature_at(self, x: int, y: int) -> float:
+    def diurnal_offset(self) -> float:
+        return DIURNAL_AMPLITUDE * math.cos(2 * math.pi * (self._day_phase - 0.25))
+
+    def get_temperature_at(self, x: int, y: int) -> float:
         if not self._temperature:
             return 0.5
         base = self._temperature[y * self.width + x]
-        return self._clouds.temperature_at(x, y, base)
+        cloud_adjusted = self._clouds._get_temperature_at(x, y, base)
+        return max(0.0, min(1.0, cloud_adjusted + self.diurnal_offset()))
 
-    def precipitation_at(self, x: int, y: int) -> float:
+    def get_precipitation_at(self, x: int, y: int) -> float:
         if not self._precipitation:
             return 0.5
         base = self._precipitation[y * self.width + x]
-        return self._clouds.precipitation_at(x, y, base)
+        return self._clouds._get_precipitation_at(x, y, base)
 
     def base_temperature(self) -> list[float]:
         return self._temperature
@@ -181,3 +201,4 @@ class WeatherSystem:
         self._temperature.clear()
         self._precipitation.clear()
         self._clouds.reset()
+        self.temperature_grid = []

@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from agents import Agents
-    from food import FoodManager
+    from plant import VegetationManager
     from simulation import Simulation
     from world import World
 
 world: World
-food: FoodManager
+vegetation: VegetationManager
 agents: Agents
 simulation: Simulation

@@ -17,12 +17,8 @@ class SimulationMetrics:
         self._starvation_deaths: int = 0
         self._age_deaths: int = 0
         self._food_eaten: int = 0
-        self._groups_formed: int = 0
-        self._groups_disbanded: int = 0
         self._peak_population: int = 0
-        self._peak_group_count: int = 0
         self._agent_ticks_alive: int = 0
-        self._agent_ticks_in_group: int = 0
         self._total_hunger_sum: int = 0
         self._agent_ticks_well_fed: int = 0
         self._total_water_sum: int = 0
@@ -45,12 +41,8 @@ class SimulationMetrics:
         self._starvation_deaths = 0
         self._age_deaths = 0
         self._food_eaten = 0
-        self._groups_formed = 0
-        self._groups_disbanded = 0
         self._peak_population = 0
-        self._peak_group_count = 0
         self._agent_ticks_alive = 0
-        self._agent_ticks_in_group = 0
         self._total_hunger_sum = 0
         self._agent_ticks_well_fed = 0
         self._total_water_sum = 0
@@ -70,15 +62,13 @@ class SimulationMetrics:
         self._birth_history = []
 
     def record_tick(
-        self, living: list, group_count: int, food_count: int, eligible_pairs: int = 0
+        self, living: list, food_count: int, eligible_pairs: int = 0
     ) -> None:
         self._ticks += 1
         n = len(living)
 
         self._peak_population = max(self._peak_population, n)
-        self._peak_group_count = max(self._peak_group_count, group_count)
         self._agent_ticks_alive += n
-        self._agent_ticks_in_group += sum(1 for a in living if a.group_id is not None)
         self._total_hunger_sum += sum(a.hunger for a in living)
         self._agent_ticks_well_fed += sum(
             1 for a in living if a.hunger >= WELL_FED_THRESHOLD
@@ -149,10 +139,6 @@ class SimulationMetrics:
             self._food_eaten += 1
         elif event_type == "agent_drank":
             self._drinks_consumed += 1
-        elif event_type == "group_formed":
-            self._groups_formed += 1
-        elif event_type == "group_disbanded":
-            self._groups_disbanded += 1
 
     def write_game_log(self) -> None:
         LOGS_DIR.mkdir(exist_ok=True)
@@ -160,7 +146,6 @@ class SimulationMetrics:
         path = LOGS_DIR / f"game_{timestamp}.json"
 
         alive = self._agent_ticks_alive
-        participation = self._agent_ticks_in_group / alive if alive > 0 else 0.0
         avg_hunger = round(self._total_hunger_sum / alive, 1) if alive > 0 else 0.0
         pct_well_fed = (
             round(self._agent_ticks_well_fed / alive, 3) if alive > 0 else 0.0
@@ -175,7 +160,6 @@ class SimulationMetrics:
             "game_summary": {
                 "ticks_survived": self._ticks,
                 "peak_population": self._peak_population,
-                "peak_group_count": self._peak_group_count,
             },
             "population": {
                 "total_births": self._births,
@@ -211,13 +195,6 @@ class SimulationMetrics:
                 ),
                 "birth_rate_history": self._birth_history,
                 "birth_rate_window_ticks": BIRTH_RATE_WINDOW,
-            },
-            "social": {
-                "groups_formed": self._groups_formed,
-                "groups_disbanded": self._groups_disbanded,
-                "agent_ticks_in_group": self._agent_ticks_in_group,
-                "total_agent_ticks": alive,
-                "group_participation_rate": round(participation, 3),
             },
         }
 
