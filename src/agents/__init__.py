@@ -2,6 +2,8 @@ from uuid import UUID
 
 from agents.agent import Agent
 import config as _cfg
+import event_bus
+from events import Event
 from pos import Pos
 
 _GRID_BUCKET = 5
@@ -87,14 +89,19 @@ class Agents:
 
         return result
 
+    def reproduce(self, world, tick_count: int) -> int:
+        from agents.reproduction import reproduce as _fn
+
+        return _fn(world, self, tick_count)
+
     def reset(self) -> None:
         self._data.clear()
         self._grid.clear()
 
-    def process_agent_death(self, agent_id: UUID) -> list[tuple[str, dict]]:
-        events: list[tuple[str, dict]] = []
+    def process_agent_death(self, agent_id: UUID) -> None:
         agent = self.get(agent_id)
         if agent:
             agent.die()
-            events.append(("agent_died", {"agent": agent.model_dump(mode="json")}))
-        return events
+            event_bus.publish(
+                Event("agent_died", {"agent": agent.model_dump(mode="json")})
+            )

@@ -21,7 +21,6 @@ async def stop_clock() -> None:
     if clock.state == "stopped":
         raise HTTPException(status_code=400, detail="Clock is already stopped")
     clock.stop()
-    deps.simulation.save_log()
     cfg.reset_runtime()
     deps.simulation.reset()
 

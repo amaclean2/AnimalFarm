@@ -6,10 +6,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+import config as cfg
 import deps
 from agents import Agents
 from clock import clock
 from connections import _connections, broadcast
+from genome_pool import GenomePool
 from plant import VegetationManager
 from routers import (
     agents,
@@ -24,15 +26,17 @@ from world import World
 
 STATIC = Path(__file__).parent.parent / "static"
 
-_world = World(width=100, height=100)
+_world = World(width=cfg.WORLD_WIDTH, height=cfg.WORLD_HEIGHT)
 _vegetation = VegetationManager(_world)
 _agents = Agents(_world.width, _world.height)
-_simulation = Simulation(_world, _vegetation, _agents)
+_genome_pool = GenomePool(cfg.DATA_DIR / "genome_pool.db")
+_simulation = Simulation(_world, _vegetation, _agents, genome_pool=_genome_pool)
 
 deps.world = _world
 deps.vegetation = _vegetation
 deps.agents = _agents
 deps.simulation = _simulation
+deps.genome_pool = _genome_pool
 
 
 async def _on_tick(tick_count: int) -> None:

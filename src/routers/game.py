@@ -10,6 +10,7 @@ import deps
 from clock import clock
 from connections import broadcast
 from agents.mutations import seed_genotype
+from genome import apply_to_agent, mutate, random_genome
 from pos import Pos
 
 router = APIRouter()
@@ -102,7 +103,7 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
     for pos in chosen_springs:
         deps.world.rivers.add_spring(pos)
     while not all(r.complete for r in deps.world.rivers.all_rivers):
-        deps.world.flow_rivers([])
+        deps.world.flow_rivers()
 
     deps.world.generate_river_proximity()
 
@@ -110,10 +111,21 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
     plant_positions = [Pos(p.x, p.y) for p in plants_placed]
     deps.world.generate_rest_quality(plant_positions, seed=random.randint(0, 999999))
 
+    pool = deps.genome_pool
+    use_elite = pool.size() >= cfg.POOL_SEED_THRESHOLD
+    elite_genomes = pool.sample_elite(cfg.AGENT_COUNT) if use_elite else []
+
     agents_born = []
-    for pos in random.sample(all_cells, cfg.AGENT_COUNT):
+    for i, pos in enumerate(random.sample(all_cells, cfg.AGENT_COUNT)):
         agent = deps.agents.add(pos, age=cfg.MATURITY_AGE)
+        genome = (
+            mutate(elite_genomes[i], cfg.SPONTANEOUS_MUTATION_RATE)
+            if use_elite
+            else random_genome()
+        )
+        agent.behavioral_genome = genome
         seed_genotype(agent)
+        apply_to_agent(agent, genome)
         agents_born.append(agent.model_dump(mode="json"))
 
     rivers_formed = [

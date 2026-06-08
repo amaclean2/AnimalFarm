@@ -6,6 +6,11 @@ from config import LOGS_DIR
 router = APIRouter(prefix="/logs", tags=["logs"])
 
 
+@router.get("/decision-process", response_class=FileResponse)
+async def decision_process_page() -> FileResponse:
+    return FileResponse(LOGS_DIR / "decision-process.html", media_type="text/html")
+
+
 @router.get("")
 async def list_logs() -> list[dict]:
     if not LOGS_DIR.exists():

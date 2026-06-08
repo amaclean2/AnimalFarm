@@ -85,12 +85,18 @@ export const updateAgentPanel = (agent) => {
   if (agentPanelTitle)
     agentPanelTitle.textContent = `Agent ${abbreviateId(agent.id)}`;
 
+  const g = agent.behavioral_genome ?? {};
+  const fmt = (v) => (v != null ? v.toFixed(3) : "—");
+
   const rows = [
     ["age", agent.age],
     [
       "action",
       agent.active_task ? agent.active_task.name.replace(/_/g, " ") : "—",
     ],
+    ["offspring", agent.offspring_count ?? 0],
+    ["idle threshold", fmt(g.idle_threshold)],
+    ["breakaway", fmt(g.breakaway_margin)],
   ];
 
   const infoHtml = rows

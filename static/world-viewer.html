@@ -321,36 +321,6 @@
 
         <div class="param-row">
           <div class="param-header">
-            <span class="param-label">Food clusters</span>
-            <span class="param-value" id="v-food-clusters">4</span>
-          </div>
-          <input
-            type="range"
-            id="s-food-clusters"
-            min="1"
-            max="10"
-            step="1"
-            value="4"
-          />
-        </div>
-
-        <div class="param-row">
-          <div class="param-header">
-            <span class="param-label">Food abundance</span>
-            <span class="param-value" id="v-food-prob">0.20</span>
-          </div>
-          <input
-            type="range"
-            id="s-food-prob"
-            min="0.05"
-            max="0.5"
-            step="0.01"
-            value="0.2"
-          />
-        </div>
-
-        <div class="param-row">
-          <div class="param-header">
             <span class="param-label">Elevation coarseness</span>
             <span class="param-value" id="v-coarse-scale">90</span>
           </div>
@@ -398,7 +368,7 @@
         </div>
         <div class="legend-item">
           <div class="swatch" style="background: #2dbb3a"></div>
-          Food
+          Plant
         </div>
         <div class="legend-item">
           <div
@@ -502,7 +472,7 @@
 
       function buildScene(data) {
         clearWorldObjects();
-        const { seed, elevation, rivers, food, clouds } = data;
+        const { seed, elevation, rivers, plants, clouds } = data;
 
         // Terrain
         const tGeo = new THREE.BoxGeometry(TILE, 1, TILE);
@@ -560,15 +530,15 @@
           worldObjects.push(rMesh);
         }
 
-        // Food
-        if (food.length > 0) {
+        // Plants
+        if (plants.length > 0) {
           const fGeo = new THREE.SphereGeometry(0.28, 4, 3);
           const fMat = new THREE.MeshBasicMaterial({ color: 0x2dbb3a });
-          const fMesh = new THREE.InstancedMesh(fGeo, fMat, food.length);
+          const fMesh = new THREE.InstancedMesh(fGeo, fMat, plants.length);
           const dummy = new THREE.Object3D();
 
-          for (let i = 0; i < food.length; i++) {
-            const { x: fx, y: fy } = food[i];
+          for (let i = 0; i < plants.length; i++) {
+            const { x: fx, y: fy } = plants[i];
             const [wx, wz] = gridToWorld(fx, fy);
             dummy.position.set(wx, elevAt(elevation, fx, fy) + 0.38, wz);
             dummy.updateMatrix();
@@ -610,7 +580,7 @@
         const info = document.getElementById("info");
         info.innerHTML =
           `seed &nbsp;<strong>${seed}</strong><br>` +
-          `${food.length} food items<br>` +
+          `${plants.length} plants<br>` +
           `${riverTiles.length} river tiles<br>` +
           `${clouds.length} clouds`;
         info.style.display = "block";
@@ -647,8 +617,6 @@
       }
 
       bindSlider("s-springs", "v-springs", (v) => v);
-      bindSlider("s-food-clusters", "v-food-clusters", (v) => v);
-      bindSlider("s-food-prob", "v-food-prob", (v) => parseFloat(v).toFixed(2));
       bindSlider("s-coarse-scale", "v-coarse-scale", (v) => v);
 
       document.getElementById("btn-randomize").addEventListener("click", () => {
@@ -673,12 +641,6 @@
             body: JSON.stringify({
               seed: seedRaw === "" ? null : parseInt(seedRaw),
               num_springs: parseInt(document.getElementById("s-springs").value),
-              num_food_clusters: parseInt(
-                document.getElementById("s-food-clusters").value,
-              ),
-              food_peak_probability: parseFloat(
-                document.getElementById("s-food-prob").value,
-              ),
               elevation_coarse_scale: parseFloat(
                 document.getElementById("s-coarse-scale").value,
               ),

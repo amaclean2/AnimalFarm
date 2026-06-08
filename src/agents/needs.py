@@ -1,5 +1,3 @@
-import math
-
 from pydantic import BaseModel
 
 import config as _cfg
@@ -16,7 +14,6 @@ from config import (
     REST_COLD_MULTIPLIER,
     REST_RESTORE_MIN,
     REST_RESTORE_MAX,
-    REPRODUCTION_HUNGER_THRESHOLD,
     TEMP_MIN_C,
     TEMP_MAX_C,
 )
@@ -29,6 +26,8 @@ class NeedState(BaseModel):
     is_sleeping: bool = False
     night_drain_multiplier: float = REST_NIGHT_MULTIPLIER
     metabolism: float = 1.0
+    water_drain_rate: float = WATER_BASE_DRAIN
+    rest_drain_rate: float = REST_BASE_DRAIN
 
     def tick(
         self,
@@ -39,7 +38,7 @@ class NeedState(BaseModel):
         self._tick_rest(is_night, tile_quality, temperature)
 
         if not self.is_sleeping:
-            self.water = max(0.0, self.water - WATER_BASE_DRAIN)
+            self.water = max(0.0, self.water - self.water_drain_rate)
 
     def _tick_rest(
         self, is_night: bool, tile_quality: float = 1.0, temperature: float = 15.0
@@ -50,7 +49,9 @@ class NeedState(BaseModel):
             )
             self.rest = min(1.0, self.rest + restore)
         else:
-            base = REST_BASE_DRAIN * (self.night_drain_multiplier if is_night else 1.0)
+            base = self.rest_drain_rate * (
+                self.night_drain_multiplier if is_night else 1.0
+            )
             temp_norm = (temperature - TEMP_MIN_C) / (TEMP_MAX_C - TEMP_MIN_C)
             cold_mult = 1.0 + (REST_COLD_MULTIPLIER - 1.0) * (1.0 - temp_norm)
             self.rest = max(0.0, self.rest - base * cold_mult)
@@ -77,40 +78,6 @@ class NeedState(BaseModel):
         river_mult = HUNGER_RIVER_MULTIPLIER if is_river else 1.0
         self.hunger -= base * river_mult
 
-    def urgency_vector(self) -> dict[str, float]:
-        h = self._hunger_urgency()
-        t = self._thirst_urgency()
-        r = self._rest_urgency()
-        return {
-            "hunger": h,
-            "thirst": t,
-            "rest": r,
-            "safety": 0.0,
-            "social": 0.0,
-            "reproduction": self._reproduction_urgency(),
-            "curiosity": self._curiosity_urgency(h, t, r),
-        }
-
-    def _hunger_urgency(self) -> float:
-        return max(0.0, 1.0 - self.hunger * 2) ** 0.5
-
-    def _thirst_urgency(self) -> float:
-        return min(1.0, (1.0 - self.water) ** 1.5)
-
-    def _rest_urgency(self) -> float:
-        return self._logistic(1.0 - self.rest, steepness=10, midpoint=0.6)
-
-    def _reproduction_urgency(self) -> float:
-        if self.hunger < REPRODUCTION_HUNGER_THRESHOLD:
-            return 0.0
-        t = (self.hunger - REPRODUCTION_HUNGER_THRESHOLD) / (
-            1.0 - REPRODUCTION_HUNGER_THRESHOLD
-        )
-        return t**0.5
-
-    def _curiosity_urgency(self, h: float, t: float, r: float) -> float:
-        return max(0.0, 1.0 - max(h, t, r) * 2.0)
-
     @staticmethod
-    def _logistic(x: float, steepness: float, midpoint: float) -> float:
-        return 1.0 / (1.0 + math.exp(-steepness * (x - midpoint)))
+    def need_urgency(level: float) -> float:
+        return (1.0 - level) ** 2

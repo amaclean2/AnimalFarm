@@ -19,6 +19,8 @@ from config import (
     RIVER_POOL_RISE_RATE,
     temp_to_c,
 )
+import event_bus
+from events import Event
 from noise import value_noise_2d
 from pos import Pos
 from .river import River, Rivers
@@ -90,15 +92,12 @@ class World:
             return 0.0
         return self.rest_quality_grid[pos.y * self.width + pos.x]
 
-    def best_rest_in_vision(
+    def suitable_rest_in_vision(
         self,
         agent: Agent,
         vision: float,
         sleeping_tiles: set[Pos] | None = None,
     ) -> Pos | None:
-        best_pos: Pos | None = None
-        best_quality = REST_SPOT_SEEK_THRESHOLD
-
         for dx in range(-int(vision), int(vision) + 1):
             for dy in range(-int(vision), int(vision) + 1):
                 if abs(dx) + abs(dy) > vision:
@@ -115,12 +114,10 @@ class World:
                     if self.rest_quality_grid
                     else 0.0
                 )
+                if quality > REST_SPOT_SEEK_THRESHOLD:
+                    return t
 
-                if quality > best_quality:
-                    best_quality = quality
-                    best_pos = t
-
-        return best_pos
+        return None
 
     def _distance_transform(self, sources: set[Pos]) -> dict[Pos, int]:
         dist: dict[Pos, int] = {}
@@ -184,23 +181,23 @@ class World:
 
     # --- Rivers ---
 
-    def _river_extend(
-        self,
-        river: River,
-        pos: Pos,
-        events: list[tuple[str, dict]],
-    ) -> None:
+    def _river_extend(self, river: River, pos: Pos) -> None:
         self.rivers.extend(river, pos)
-        events.append(
-            ("river_tile_added", {"river_id": str(river.id), "x": pos.x, "y": pos.y})
+        event_bus.publish(
+            Event(
+                "river_tile_added", {"river_id": str(river.id), "x": pos.x, "y": pos.y}
+            )
         )
 
         if river.complete:
-            events.append(
-                ("river_completed", {"river_id": str(river.id), "reached_bottom": True})
+            event_bus.publish(
+                Event(
+                    "river_completed",
+                    {"river_id": str(river.id), "reached_bottom": True},
+                )
             )
 
-    def flow_rivers(self, events: list[tuple[str, dict]]) -> None:
+    def flow_rivers(self) -> None:
         for river in self.rivers.all_rivers:
 
             if river.complete:
@@ -221,8 +218,8 @@ class World:
 
             if not candidates:
                 river.complete = True
-                events.append(
-                    (
+                event_bus.publish(
+                    Event(
                         "river_completed",
                         {"river_id": str(river.id), "reached_bottom": False},
                     )
@@ -244,7 +241,7 @@ class World:
             if chosen_elev <= elev_head:
                 river.pool_level = 0.0
                 river.last_dx, river.last_dy = chosen.x - hx, chosen.y - hy
-                self._river_extend(river, chosen, events)
+                self._river_extend(river, chosen)
             else:
                 wall_height = chosen_elev - elev_head
                 river.pool_level += RIVER_POOL_RISE_RATE
@@ -252,7 +249,7 @@ class World:
                 if river.pool_level >= wall_height:
                     river.pool_level = 0.0
                     river.last_dx, river.last_dy = chosen.x - hx, chosen.y - hy
-                    self._river_extend(river, chosen, events)
+                    self._river_extend(river, chosen)
 
     def reset(self) -> None:
         self.rivers.clear()

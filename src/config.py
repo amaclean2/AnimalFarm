@@ -7,6 +7,9 @@ from pathlib import Path
 
 # ── World generation ──────────────────────────────────────────────────────────
 
+WORLD_WIDTH = 100
+WORLD_HEIGHT = 100
+
 AGENT_COUNT = 8
 NUM_SPRINGS = 3
 CLIMATE_COARSE_SCALE = 50.0
@@ -46,17 +49,18 @@ VISION_RANGE = 20
 
 # ── Needs & metabolism ────────────────────────────────────────────────────────
 
+CRITICAL_THRESHOLD = (
+    0.10  # minimum need level before an agent stops committing harvest ticks
+)
 HUNGER_BASE_DRAIN = 0.01  # adult hunger drain per tick
 HUNGER_INFANT_MULTIPLIER = 2.0  # infant drains this × base (scales to 1× at maturity)
 HUNGER_RIVER_MULTIPLIER = 2.0  # river tile multiplies hunger drain
 EAT_RESTORE = 0.20  # hunger restored per meal (~5 meals to go 0 → full)
 
 WATER_BASE_DRAIN = 0.01
-WATER_URGENCY_DISTANCE_SCALE = 15.0  # tiles at which comfort reaches ~60% (asymptotic)
-WATER_LOST_URGENCY_MULTIPLIER = 3.0  # urgency multiplier when no water source is known
 DRINK_RESTORE = 0.20  # water restored per drink (~5 drinks to go 0 → full)
 
-REST_BASE_DRAIN = 0.005
+REST_BASE_DRAIN = 0.003
 REST_NIGHT_MULTIPLIER = 3.0  # drain multiplier while awake at night
 REST_COLD_MULTIPLIER = (
     2.0  # drain multiplier at minimum temperature (scales to 1× at max temp)
@@ -84,7 +88,6 @@ MATING_COOLDOWN = 10  # ticks an agent must wait before mating again
 
 # ── Decision making ───────────────────────────────────────────────────────────
 
-CONTINUATION_BONUS = 0.15  # urgency bonus for staying on the current task
 HARVEST_COST: dict[str, int] = {
     "date_palm": 6,
     "wild_plum": 2,
@@ -92,7 +95,10 @@ HARVEST_COST: dict[str, int] = {
     "berry_bush": 3,
     "bilberry": 5,
 }
-HARVEST_CONTINUATION_BONUS = 0.25
+IDLE_THRESHOLD = (
+    0.15  # minimum urgency score to start purposeful action when unoccupied
+)
+BREAKAWAY_MARGIN = 0.20  # competing urgency must exceed current task's urgency by this much to interrupt
 DECISION_STRIDE = 2  # ticks between full agent decisions
 PLAN_HORIZON = 2  # steps produced per decision
 
@@ -119,6 +125,12 @@ HILL_ENERGY_MULTIPLIER = (
 # ── Genetics & mutations ──────────────────────────────────────────────────────
 
 SPONTANEOUS_MUTATION_RATE = 0.15
+
+# ── Behavioural evolution ─────────────────────────────────────────────────────
+
+POOL_SEED_THRESHOLD = 50  # min pool rows before seeding new sims from elite
+OFFSPRING_WEIGHT = 2.0  # fitness = lifespan * (1 + offspring * this)
+DATA_DIR = Path(__file__).parent.parent / "data"
 VISION_BOOST = 8  # vision range added by keen_sight mutation
 VISION_PENALTY = 6  # vision range removed by poor_sight mutation
 SEED_HETEROZYGOUS_RATE = 0.25
@@ -131,10 +143,8 @@ CONFIDENCE_PRUNE = 0.05
 DECAY_RATE = 0.001
 FAMILIARITY_WEIGHT = 0.2  # log-tapered bonus per revisit to a rest tile
 
-# ── Metrics & logging ─────────────────────────────────────────────────────────
-
-BIRTH_RATE_WINDOW = 20
 LOGS_DIR = Path(__file__).parent.parent / "logs"
+DEBUG_HARVEST = True  # set False to disable harvest debug logging
 
 # ── Runtime overrides ─────────────────────────────────────────────────────────
 

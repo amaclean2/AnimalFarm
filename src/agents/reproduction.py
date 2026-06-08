@@ -3,17 +3,17 @@ from uuid import UUID
 
 import config as _cfg
 from agents import Agents
+import event_bus
+from events import Event
 from agents.mutations import inherit_or_mutate
 from config import (
-    REPRODUCTION_HUNGER_THRESHOLD,
     REPRODUCTION_RANGE,
 )
+from genome import crossover, mutate, apply_to_agent
 from world import World
 
 
-def reproduce(
-    world: World, agents: Agents, events: list[tuple[str, dict]], tick_count: int
-) -> int:
+def reproduce(world: World, agents: Agents, tick_count: int) -> int:
     """Attempt reproduction for eligible pairs. Returns count of eligible pairs found."""
     all_agents = agents.all_living
     paired: set[UUID] = set()
@@ -41,8 +41,21 @@ def reproduce(
 
             spawn_pos = random.choice(spawn_candidates)
             newborn = agents.add(spawn_pos, birth_tick=tick_count)
+
+            child_genome = mutate(
+                crossover(agent.behavioral_genome, other.behavioral_genome),
+                _cfg.SPONTANEOUS_MUTATION_RATE,
+            )
+            newborn.behavioral_genome = child_genome
             inherit_or_mutate(newborn, agent, other)
-            events.append(("agent_born", {"agent": newborn.model_dump(mode="json")}))
+            apply_to_agent(newborn, child_genome)
+
+            agent.offspring_count += 1
+            other.offspring_count += 1
+
+            event_bus.publish(
+                Event("agent_born", {"agent": newborn.model_dump(mode="json")})
+            )
             agent.last_mated_tick = tick_count
             other.last_mated_tick = tick_count
             paired.add(agent.id)

@@ -45,18 +45,18 @@ class Rivers:
         key = (pos.x // _TILE_BUCKET, pos.y // _TILE_BUCKET)
         self._bucket_index.setdefault(key, []).append(pos)
 
-    def tiles_near(self, x: int, y: int, radius: int) -> list[Pos]:
-        bx0 = (x - radius) // _TILE_BUCKET
-        bx1 = (x + radius) // _TILE_BUCKET
-        by0 = (y - radius) // _TILE_BUCKET
-        by1 = (y + radius) // _TILE_BUCKET
+    def tiles_near(self, pos: Pos, radius: int) -> list[Pos]:
+        bx0 = (pos.x - radius) // _TILE_BUCKET
+        bx1 = (pos.x + radius) // _TILE_BUCKET
+        by0 = (pos.y - radius) // _TILE_BUCKET
+        by1 = (pos.y + radius) // _TILE_BUCKET
         result = []
 
         for bx in range(bx0, bx1 + 1):
             for by in range(by0, by1 + 1):
-                for pos in self._bucket_index.get((bx, by), []):
-                    if abs(pos.x - x) + abs(pos.y - y) <= radius:
-                        result.append(pos)
+                for tile in self._bucket_index.get((bx, by), []):
+                    if abs(tile.x - pos.x) + abs(tile.y - pos.y) <= radius:
+                        result.append(tile)
 
         return result
 

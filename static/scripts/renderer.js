@@ -33,6 +33,7 @@ const TASK_COLORS = {
   flee: "#e74c3c",
   mate: "#e91e63",
   explore: "#95a5a6",
+  thirst_explore: "#5dade2",
   return_home: "#2ecc71",
 };
 

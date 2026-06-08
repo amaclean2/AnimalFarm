@@ -38,7 +38,7 @@ def build_preview(
     for pos in chosen_springs:
         preview.rivers.add_spring(pos)
     while not all(r.complete for r in preview.rivers.all_rivers):
-        preview.flow_rivers([])
+        preview.flow_rivers()
 
     preview.generate_river_proximity()
     vegetation = VegetationManager(preview)

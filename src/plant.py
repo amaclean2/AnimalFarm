@@ -6,7 +6,10 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
+import config as cfg
 from config import PLANT_SHADE, PLANT_SHADE_ADJACENT
+import event_bus
+from events import Event
 from pos import Pos
 
 # ── Plant type specifications ─────────────────────────────────────────────────
@@ -94,6 +97,13 @@ class Plant(BaseModel):
     def pos(self) -> Pos:
         return Pos(self.x, self.y)
 
+    @property
+    def ticks_per_fruit(self) -> int:
+        return cfg.HARVEST_COST.get(self.plant_type, 2)
+
+    def remove(self, n: int) -> None:
+        self.fruit_count = max(0.0, self.fruit_count - n)
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -130,6 +140,7 @@ class VegetationManager:
         self._plants: dict[UUID, Plant] = {}
         self._by_pos: dict[Pos, Plant] = {}
         self.shade_grid: list[float] = []
+        self._visible: dict[UUID, list[Plant]] = {}
 
     def place_plants(self, seed: int) -> list[Plant]:
         rng = random.Random(seed)
@@ -173,7 +184,7 @@ class VegetationManager:
         self.rebuild_shade_grid()
         return placed
 
-    def grow_plants(self, tick: int, events: list[tuple[str, dict]]) -> None:
+    def grow_plants(self, tick: int) -> None:
         updates: list[dict] = []
         for plant in self._plants.values():
             if plant.fruit_count >= plant.max_fruit:
@@ -188,7 +199,7 @@ class VegetationManager:
                 )
 
         if updates:
-            events.append(("fruit_grew", {"updates": updates}))
+            event_bus.publish(Event("fruit_grew", {"updates": updates}))
 
     def rebuild_shade_grid(self) -> None:
         w = self._world.width
@@ -219,13 +230,18 @@ class VegetationManager:
 
         self.shade_grid = grid
 
-    def shade_at(self, x: int, y: int) -> float:
+    def shade_at(self, pos: Pos) -> float:
         if not self.shade_grid:
             return 0.0
+        x, y = pos
         return self.shade_grid[y * self._world.width + x]
 
     def get_plant_at(self, pos: Pos) -> Plant | None:
         return self._by_pos.get(pos)
+
+    def fruiting_plant_at(self, pos: Pos) -> Plant | None:
+        plant = self._by_pos.get(pos)
+        return plant if plant is not None and plant.fruit_count >= 1 else None
 
     def get_plant(self, plant_id: UUID) -> Plant | None:
         return self._plants.get(plant_id)
@@ -237,21 +253,31 @@ class VegetationManager:
         plant.fruit_count -= 1
         return plant
 
-    def plants_in_vision(self, agent, vision_range: float | None = None) -> list[Plant]:
-        r = vision_range if vision_range is not None else agent.vision_range
+    def nearby(self, pos: Pos, radius: float) -> list[Plant]:
         return [
             p
             for p in self._plants.values()
-            if abs(p.x - agent.x) + abs(p.y - agent.y) <= r and p.fruit_count >= 1
+            if abs(p.x - pos.x) + abs(p.y - pos.y) <= radius and p.fruit_count >= 1
         ]
 
-    def compute_plant_visibility(
-        self, agent_vision: dict, agents
-    ) -> dict[UUID, list[Plant]]:
-        return {
-            agent.id: self.plants_in_vision(agent, agent_vision[agent.id])
-            for agent in agents.all_living
+    def plants_in_vision(self, agent, vision_range: float | None = None) -> list[Plant]:
+        r = vision_range if vision_range is not None else agent.vision_range
+        return self.nearby(agent.pos, r)
+
+    def compute_plant_visibility(self, agents) -> None:
+        self._visible = {
+            agent.id: self.plants_in_vision(agent) for agent in agents.all_living
         }
+
+    def visible_for(self, agent_id: UUID) -> list[Plant]:
+        return self._visible.get(agent_id, [])
+
+    def nearby_in_vision(self, agent_id: UUID, pos: Pos, radius: float) -> list[Plant]:
+        return [
+            p
+            for p in self._visible.get(agent_id, [])
+            if abs(p.x - pos.x) + abs(p.y - pos.y) <= radius
+        ]
 
     @property
     def all_plants(self) -> list[Plant]:

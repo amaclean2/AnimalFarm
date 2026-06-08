@@ -45,7 +45,7 @@ def _alleles_passed(count: int) -> int:
 
 def apply_expressed_mutations(agent) -> None:
     agent.vision_range = VISION_RANGE
-    agent.needs.metabolism = 1.0
+    agent.needs.metabolism = agent.behavioral_genome.get("metabolism", 1.0)
     agent.needs.night_drain_multiplier = REST_NIGHT_MULTIPLIER
 
     agent.mutations = [
