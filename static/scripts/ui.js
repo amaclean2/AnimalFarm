@@ -108,9 +108,9 @@ export const updateAgentPanel = (agent) => {
 
   const barsHtml =
     `<div class="agent-bars">` +
-    agentBar("hunger", agent.hunger, "#c0392b") +
-    agentBar("thirst", agent.water, "#27a4c0") +
-    agentBar("rest", agent.rest, "#5b8dd9") +
+    agentBar("hunger", agent.needs.hunger, "#c0392b") +
+    agentBar("thirst", agent.needs.water, "#27a4c0") +
+    agentBar("rest", agent.needs.rest, "#5b8dd9") +
     `</div>`;
 
   agentPanelBody.innerHTML = infoHtml + barsHtml;

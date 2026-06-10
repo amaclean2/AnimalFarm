@@ -50,21 +50,57 @@ class Simulation:
         self,
         agent: Agent,
         valid_moves: list[Pos],
-        snapshot: VisionSnapshot,
+        sleeping_tiles: set[Pos],
         occupied_tiles: set[Pos] | None = None,
-        rest_target: Pos | None = None,
     ) -> list[Pos]:
+        snapshot = self._build_vision_snapshot(agent, sleeping_tiles)
+
+        agent.update_food_memory(snapshot.food_targets, self.tick_count)
+        agent.update_water_memory(snapshot.visible_water, self.tick_count)
+        agent.update_rest_target(snapshot.visible_rest, sleeping_tiles)
+
         vision = float(agent.vision_range)
+        explore_goal = agent.get_explore_goal(self.tick_count)
+        thirst_explore_goal = agent.get_thirst_explore_goal(self.tick_count)
+        mate_position = self.agents.find_mate_target(agent, vision, self.tick_count)
+
+        at_river_tile = self.world.rivers.is_river_tile(agent.pos)
+        local_fruit_plant = self.vegetation.at_fruit_plant_at(agent.pos)
+        at_rest_target = agent.rest_target is None or agent.pos == agent.rest_target
+
         top_task = agent.choose_action(
-            self.agents.find_mate_target(agent, vision, self.tick_count),
-            agent.explore_goal(self.world.width, self.world.height, self.tick_count),
-            agent.thirst_explore_goal(
-                self.world.width, self.world.height, self.tick_count
-            ),
-            self.tick_count,
+            mate_pos=mate_position,
+            explore_goal=explore_goal,
+            thirst_explore_goal=thirst_explore_goal,
+            tick=self.tick_count,
             visible_water=snapshot.visible_water,
-            rest_target=rest_target,
+            rest_target=agent.rest_target,
+            at_river_tile=at_river_tile,
+            plant_labor=(
+                local_fruit_plant.ticks_per_fruit if local_fruit_plant else None
+            ),
         )
+
+        if top_task.name == "drink":
+            agent.needs.is_drinking = True
+            agent.active_task = top_task
+            return [agent.pos]
+
+        if top_task.name == "harvest_food":
+            if agent.needs.harvest_count == 0 and local_fruit_plant is not None:
+                agent.needs.harvest_count = local_fruit_plant.ticks_per_fruit
+                agent.active_task = top_task
+                if agent.needs.harvest_count > 0:
+                    event_bus.publish(
+                        Event(
+                            "harvest_started",
+                            {
+                                "agent_id": str(agent.id),
+                                "plant_id": str(local_fruit_plant.id),
+                            },
+                        )
+                    )
+            return [agent.pos]
 
         if top_task.name == "seek_food" and top_task.goal_pos == agent.pos:
             return [agent.pos]
@@ -80,14 +116,14 @@ class Simulation:
                 goal_pos=nearest.pos,
             )
 
-        if top_task.name == "drink" and snapshot.visible_water:
+        if top_task.name == "seek_water" and snapshot.visible_water:
             nearest_water = min(
                 snapshot.visible_water,
                 key=lambda pos: abs(pos.x - agent.x) + abs(pos.y - agent.y),
             )
             top_task = Task(
                 priority=top_task.priority,
-                name="drink",
+                name="seek_water",
                 goal_pos=nearest_water,
             )
 
@@ -101,7 +137,7 @@ class Simulation:
             agent.active_task = top_task
 
         first_step = None
-        
+
         if agent.path:
             step = agent.path[0]
             if step in valid_moves:
@@ -115,14 +151,17 @@ class Simulation:
                     occupied_tiles,
                     int(vision),
                 )
-                
+
                 if agent.path and agent.path[0] in valid_moves:
                     first_step = agent.path.pop(0)
                 elif (agent.id.int + self.tick_count) % 2 == 0:
                     first_step = agent.pos
         elif top_task.name == "sleep":
+            agent.sleep_if_ready(
+                at_rest_target, self.world.rivers.is_river_tile(agent.pos)
+            )
             first_step = agent.pos
-            
+
         pathfinding_food_targets = (
             []
             if top_task.name in ("thirst_explore", "seek_water")
@@ -140,21 +179,14 @@ class Simulation:
         return steps
 
     def _harvest_tick(self, agent: Agent) -> bool:
-        if agent.harvest_count == 0:
+        finished_harvesting = agent.harvest()
+
+        if not finished_harvesting:
             return False
 
-        local_plant = self.vegetation.get_plant_at(agent.pos)
-        if local_plant is None:
-            agent.harvest_count = 0
-            return False
+        agent.active_task = None
+        local_plant = self.vegetation.remove_fruit_at(agent.pos)
 
-        agent.harvest_count -= 1
-        if agent.harvest_count > 0:
-            return False
-
-        local_plant.remove(1)
-        agent.eat()
-        
         event_bus.publish(
             Event(
                 "fruit_harvested",
@@ -166,27 +198,7 @@ class Simulation:
                 },
             )
         )
-        event_bus.publish(
-            Event(
-                "agent_ate",
-                {
-                    "agent": agent.model_dump(mode="json"),
-                    "plant_id": str(local_plant.id),
-                },
-            )
-        )
-        
-        if local_plant.fruit_count < 1:
-            event_bus.publish(
-                Event(
-                    "fruit_depleted",
-                    {
-                        "plant_id": str(local_plant.id),
-                        "x": local_plant.x,
-                        "y": local_plant.y,
-                    },
-                )
-            )
+
         return True
 
     def _build_vision_snapshot(
@@ -228,97 +240,50 @@ class Simulation:
         occupied_tiles: set[Pos],
         sleeping_tiles: set[Pos],
         is_night: bool,
-    ) -> bool:
+    ) -> None:
         moves = self.world.valid_moves(agent.pos)
         if not moves:
-            return False
+            return
 
         valid_moves = [m for m in moves if m not in occupied_tiles]
         if not valid_moves:
-            return False
+            return
 
         shade = self.vegetation.shade_at(agent.pos)
         temperature = cfg.temp_to_c(
             max(0.0, self.world.weather.temperature_grid[agent.get_pos_idx()] - shade)
         )
-        agent.increment_needs(
-            is_night,
-            tile_quality=self.world.rest_quality_at(agent.pos),
-            temperature=temperature,
-        )
+        tile_quality = self.world.rest_quality_at(agent.pos)
 
-        snapshot = self._build_vision_snapshot(agent, sleeping_tiles)
+        agent.sleep(tile_quality)
+        self._harvest_tick(agent)
+        agent.drink()
 
-        agent.update_food_memory(snapshot.food_targets, self.tick_count)
-        agent.update_water_memory(snapshot.visible_water, self.tick_count)
-        agent.update_rest_target(snapshot.visible_rest, sleeping_tiles)
-
-        at_rest_target = agent.rest_target is None or agent.pos == agent.rest_target
-        was_sleeping = agent.is_sleeping
-        agent.tick_sleep()
-
-        agent.sleep_if_ready(at_rest_target, self.world.rivers.is_river_tile(agent.pos))
-
-        if was_sleeping and not agent.is_sleeping:
-            agent.rest_target = None
-
-        old_pos = agent.pos
-        if agent.is_sleeping or agent.harvest_count > 0:
-            agent.planned_steps.clear()
+        if (
+            agent.needs.is_sleeping
+            or agent.needs.harvest_count > 0
+            or agent.needs.is_drinking
+        ):
+            agent.planned_steps = []
             agent.next_decision_tick = self.tick_count + 1
-        else:
-            plant_at_pos = None
-            if agent.active_task is not None and agent.active_task.name == "seek_food":
-                plant_at_pos = self.vegetation.fruiting_plant_at(agent.pos)
+            return
 
-            if plant_at_pos is not None:
-                agent.begin_harvest(plant_at_pos)
-                if agent.harvest_count > 0:
-                    event_bus.publish(
-                        Event(
-                            "harvest_started",
-                            {
-                                "agent_id": str(agent.id),
-                                "plant_id": str(plant_at_pos.id),
-                            },
-                        )
-                    )
-                agent.planned_steps.clear()
-                agent.next_decision_tick = self.tick_count + 1
-            else:
-                planned = self._plan_steps(
-                    agent,
-                    valid_moves,
-                    snapshot,
-                    occupied_tiles,
-                    rest_target=agent.rest_target,
-                )
-                agent.move_to(planned[0])
-                agent.planned_steps = planned[1:]
-                agent.next_decision_tick = self.tick_count + len(planned)
+        planned = self._plan_steps(
+            agent,
+            valid_moves,
+            sleeping_tiles,
+            occupied_tiles,
+        )
+        agent.planned_steps = planned
+        agent.next_decision_tick = self.tick_count + len(planned)
 
-        occupied_tiles.discard(old_pos)
-        occupied_tiles.add(agent.pos)
-        agent.age += 1
-
-        if agent.pos != old_pos and not agent.is_sleeping:
-            elev_gain = self.world.elevation_at(agent.pos) - self.world.elevation_at(
-                old_pos
-            )
-            if elev_gain > 0:
-                agent.drain_uphill(elev_gain)
-
-        ate_this_tick = self._harvest_tick(agent)
-
-        if self.world.rivers.is_river_tile(agent.pos):
-            agent.drink()
-            event_bus.publish(Event("agent_drank", {"agent_id": str(agent.id)}))
-
-        if not ate_this_tick and not agent.is_sleeping:
-            agent.apply_hunger_drain(self.world.rivers.is_river_tile(agent.pos))
-
-        event_bus.publish(
-            Event("agent_moved", {"agent": agent.model_dump(mode="json")})
+        agent.tick_movement(
+            self.world.rivers.is_river_tile,
+            occupied_tiles,
+            self.tick_count,
+            self.world.elevation_at,
+            is_night,
+            temperature,
         )
 
     def _execute_agent_step(
@@ -326,47 +291,33 @@ class Simulation:
         agent: Agent,
         occupied_tiles: set[Pos],
         is_night: bool,
-    ) -> bool:
-        tile_quality = self.world.rest_quality_at(agent.pos)
+    ) -> None:
         shade = self.vegetation.shade_at(agent.pos)
         temperature = cfg.temp_to_c(
-            max(
-                0.0,
-                self.world.weather.temperature_grid[agent.get_pos_idx()] - shade,
+            max(0.0, self.world.weather.temperature_grid[agent.get_pos_idx()] - shade)
+        )
+        tile_quality = self.world.rest_quality_at(agent.pos)
+
+        agent.sleep(tile_quality)
+        self._harvest_tick(agent)
+        agent.drink()
+
+        if (
+            agent.needs.is_sleeping
+            or agent.needs.harvest_count > 0
+            or agent.needs.is_drinking
+        ):
+            agent.planned_steps.clear()
+            agent.next_decision_tick = self.tick_count + 1
+        else:
+            agent.tick_movement(
+                self.world.rivers.is_river_tile,
+                occupied_tiles,
+                self.tick_count,
+                self.world.elevation_at,
+                is_night,
+                temperature,
             )
-        )
-        agent.increment_needs(
-            is_night, tile_quality=tile_quality, temperature=temperature
-        )
-
-        old_pos = agent.pos
-
-        agent.tick_movement(
-            self.world.rivers.is_river_tile,
-            occupied_tiles,
-            self.tick_count,
-            tile_quality,
-        )
-
-        if agent.pos != old_pos:
-            elev_gain = self.world.elevation_at(agent.pos) - self.world.elevation_at(
-                old_pos
-            )
-            if elev_gain > 0:
-                agent.drain_uphill(elev_gain)
-
-        ate_this_tick = self._do_harvest_tick(agent)
-
-        if self.world.rivers.is_river_tile(agent.pos):
-            agent.drink()
-            event_bus.publish(Event("agent_drank", {"agent_id": str(agent.id)}))
-
-        if not ate_this_tick and not agent.is_sleeping:
-            agent.apply_hunger_drain(self.world.rivers.is_river_tile(agent.pos))
-
-        event_bus.publish(
-            Event("agent_moved", {"agent": agent.model_dump(mode="json")})
-        )
 
     def _process_agents(
         self,
@@ -375,6 +326,10 @@ class Simulation:
         sleeping_tiles: set,
         is_night: bool,
     ) -> None:
+        # agents take turns making decisions. Half the agents make decisions on even number ticks
+        # and the others make decisions on odd number ticks
+        # All agents carry out two ticks per decision
+
         deciding_agents = [
             a for a in all_living if self.tick_count >= a.next_decision_tick
         ]
@@ -417,13 +372,13 @@ class Simulation:
         is_night = (tick_count % DAY_LENGTH) >= DAY_LENGTH // 2
         self.world.weather.set_day_phase((tick_count % DAY_LENGTH) / DAY_LENGTH)
 
-        self.vegetation.grow_plants(tick_count)
+        self.vegetation.grow_plants()
 
         all_living = self.agents.all_living
         self.vegetation.compute_plant_visibility(self.agents)
 
         occupied_tiles: set[Pos] = {a.pos for a in all_living}
-        sleeping_tiles: set[Pos] = {a.pos for a in all_living if a.is_sleeping}
+        sleeping_tiles: set[Pos] = {a.pos for a in all_living if a.needs.is_sleeping}
 
         self.agents.build_spatial_grid()
 

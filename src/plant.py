@@ -12,8 +12,6 @@ import event_bus
 from events import Event
 from pos import Pos
 
-# ── Plant type specifications ─────────────────────────────────────────────────
-
 _TEMP_FALLOFF = 7.5  # °C outside range before suitability → 0
 _PRECIP_FALLOFF = 0.15
 _MIN_SUITABILITY = 0.1
@@ -73,9 +71,6 @@ _PLANT_SPECS: dict[str, dict] = {
 }
 
 
-# ── Data types ────────────────────────────────────────────────────────────────
-
-
 @dataclass
 class ClimateData:
     temperature: float
@@ -105,9 +100,6 @@ class Plant(BaseModel):
         self.fruit_count = max(0.0, self.fruit_count - n)
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-
 def _range_score(value: float, lo: float, hi: float, falloff: float) -> float:
     if lo <= value <= hi:
         return 1.0
@@ -129,9 +121,6 @@ def _suitability(spec: dict, climate: ClimateData) -> float:
         climate.precipitation, spec["precip_lo"], spec["precip_hi"], _PRECIP_FALLOFF
     )
     return temp_score * precip_score
-
-
-# ── VegetationManager ─────────────────────────────────────────────────────────
 
 
 class VegetationManager:
@@ -160,8 +149,10 @@ class VegetationManager:
 
             for ptype, spec in _PLANT_SPECS.items():
                 suit = _suitability(spec, climate)
+
                 if suit < _MIN_SUITABILITY:
                     continue
+
                 if rng.random() < spec["germination_rate"] * suit:
                     candidates.append((suit, ptype, spec))
 
@@ -184,7 +175,7 @@ class VegetationManager:
         self.rebuild_shade_grid()
         return placed
 
-    def grow_plants(self, tick: int) -> None:
+    def grow_plants(self) -> None:
         updates: list[dict] = []
         for plant in self._plants.values():
             if plant.fruit_count >= plant.max_fruit:
@@ -236,9 +227,6 @@ class VegetationManager:
         x, y = pos
         return self.shade_grid[y * self._world.width + x]
 
-    def get_plant_at(self, pos: Pos) -> Plant | None:
-        return self._by_pos.get(pos)
-
     def fruiting_plant_at(self, pos: Pos) -> Plant | None:
         plant = self._by_pos.get(pos)
         return plant if plant is not None and plant.fruit_count >= 1 else None
@@ -246,11 +234,18 @@ class VegetationManager:
     def get_plant(self, plant_id: UUID) -> Plant | None:
         return self._plants.get(plant_id)
 
-    def consume_fruit_at(self, pos: Pos) -> Plant | None:
+    def remove_fruit_at(self, pos: Pos) -> Plant | None:
         plant = self._by_pos.get(pos)
         if plant is None or plant.fruit_count < 1:
             return None
         plant.fruit_count -= 1
+        if plant.fruit_count < 1:
+            event_bus.publish(
+                Event(
+                    "fruit_depleted",
+                    {"plant_id": str(plant.id), "x": plant.x, "y": plant.y},
+                )
+            )
         return plant
 
     def nearby(self, pos: Pos, radius: float) -> list[Plant]:

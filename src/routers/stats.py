@@ -37,7 +37,7 @@ async def get_stats():
                 id=a.id,
                 x=a.x,
                 y=a.y,
-                hunger=a.hunger,
+                hunger=a.needs.hunger,
                 age=a.age,
                 alive=a.alive,
                 birth_tick=a.birth_tick,

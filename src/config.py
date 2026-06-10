@@ -108,7 +108,6 @@ FOOD_BASE_WEIGHT = 4.0
 FOOD_HUNGER_BONUS = 4.0
 FOOD_MEMORY_WEIGHT = 1.5
 WANDER_WEIGHT = 0.15
-MOMENTUM_WEIGHT = 0.3
 
 # ── Ecology ───────────────────────────────────────────────────────────────────
 
