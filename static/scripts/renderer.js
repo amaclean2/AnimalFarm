@@ -588,7 +588,6 @@ const frame = (now) => {
   drawRivers();
 
   if (selectedAgent) drawVision(selectedAgent, visionRadius);
-  if (selectedAgent) drawRestMemory(selectedAgent);
 
   drawPlants(visiblePlantIds);
   drawLivingAgents();

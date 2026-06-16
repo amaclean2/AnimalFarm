@@ -27,11 +27,8 @@ async def stop_clock() -> None:
 
 @router.post("/pause", status_code=204)
 async def pause_clock() -> None:
-    if clock.state != "running":
-        raise HTTPException(
-            status_code=400, detail=f"Clock is {clock.state}, not running"
-        )
-    clock.pause()
+    if clock.state == "running":
+        clock.pause()
 
 
 @router.post("/resume", status_code=204)

@@ -77,7 +77,6 @@ REST_SPOT_SEEK_THRESHOLD = 0.35  # min visible quality worth navigating toward
 MEMORY_REST_BONUS = (
     0.15  # quality bonus for a remembered rest tile, decays with distance
 )
-REST_SAFETY_BUFFER_FRAC = 0.05  # rest fraction to keep in reserve when planning travel
 
 # ── Reproduction ──────────────────────────────────────────────────────────────
 
@@ -95,9 +94,8 @@ HARVEST_COST: dict[str, int] = {
     "berry_bush": 3,
     "bilberry": 5,
 }
-IDLE_THRESHOLD = (
-    0.15  # minimum urgency score to start purposeful action when unoccupied
-)
+IDLE_THRESHOLD = 0.15  # minimum urgency score to start purposeful action when unoccupied
+
 BREAKAWAY_MARGIN = 0.20  # competing urgency must exceed current task's urgency by this much to interrupt
 DECISION_STRIDE = 2  # ticks between full agent decisions
 PLAN_HORIZON = 2  # steps produced per decision

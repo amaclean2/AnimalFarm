@@ -1,6 +1,11 @@
-import random
+from __future__ import annotations
 
-from agents.agent import Agent
+import random
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from agents.agent import Agent
+
 from config import (
     FOOD_BASE_WEIGHT,
     FOOD_HUNGER_BONUS,
@@ -28,20 +33,3 @@ def score_move(
         score += FOOD_MEMORY_WEIGHT / (1 + dist)
 
     return score
-
-
-def best_move(
-    agent: Agent,
-    candidates: list[Pos],
-    food_targets: list[Plant],
-) -> Pos:
-    best_pos = candidates[0]
-    best_score = float("-inf")
-
-    for p in candidates:
-        score = score_move(agent, p, food_targets)
-        if score > best_score:
-            best_score = score
-            best_pos = p
-
-    return best_pos

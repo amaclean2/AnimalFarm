@@ -34,8 +34,6 @@ import { getClockState, setTickMs } from './state.js'
 
 const canvas = document.getElementById('game')
 
-console.log('hi')
-
 const findAgentAtWorldPos = (worldX, worldY) =>
   [...agents.values()].find((agent) => agent.x === worldX && agent.y === worldY)
 
@@ -124,7 +122,7 @@ document.getElementById('config-start-btn').addEventListener('click', () => {
   post('/start', readConfigValues())
 })
 
-btnPause.addEventListener('click', () => {
+const togglePause = () => {
   const clockState = getClockState()
   if (clockState === 'running') {
     post('/clock/pause')
@@ -133,7 +131,9 @@ btnPause.addEventListener('click', () => {
     post('/clock/resume')
     applyClockState('running')
   }
-})
+}
+
+btnPause.addEventListener('click', togglePause)
 
 btnStop.addEventListener('click', () => {
   post('/clock/stop')
@@ -141,6 +141,10 @@ btnStop.addEventListener('click', () => {
 })
 
 btnStats.addEventListener('click', openStats)
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'p' || e.key === 'P') togglePause()
+})
 
 const btnNextAgent = document.getElementById('btn-next-agent')
 let agentCursor = 0

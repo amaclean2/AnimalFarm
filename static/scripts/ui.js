@@ -95,8 +95,7 @@ export const updateAgentPanel = (agent) => {
       agent.active_task ? agent.active_task.name.replace(/_/g, " ") : "—",
     ],
     ["offspring", agent.offspring_count ?? 0],
-    ["idle threshold", fmt(g.idle_threshold)],
-    ["breakaway", fmt(g.breakaway_margin)],
+    ["breakaway", fmt(g.breakaway_threshold)],
   ];
 
   const infoHtml = rows

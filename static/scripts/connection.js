@@ -77,7 +77,8 @@ const handleMessage = (rawData) => {
       break;
     }
 
-    case "agent_moved": {
+    case "agent_moved":
+    case "agent_sleeping": {
       const agent = upsertAgent(message.agent);
       if (agent.id === getSelectedAgentId()) updateAgentPanel(agent);
       break;
@@ -152,9 +153,6 @@ const handleMessage = (rawData) => {
         );
       }
       const handleMs = performance.now() - t0;
-      console.log(
-        `[tick ${message.tick}] gap=${gap.toFixed(1)}ms  handle=${handleMs.toFixed(1)}ms`,
-      );
 
       if (gap > 0) {
         _gapSamples.push(gap);

@@ -31,11 +31,15 @@ class NeedState(BaseModel):
     water_drain_rate: float = WATER_BASE_DRAIN
     rest_drain_rate: float = REST_BASE_DRAIN
 
+    @property
+    def is_busy(self) -> bool:
+        return self.is_sleeping or self.harvest_count > 0 or self.is_drinking
+
     def apply_thirst_drain(self) -> None:
         self.water = max(0.0, self.water - self.water_drain_rate)
 
-    def apply_rest_drain(self, is_night: bool, temperature: float = 15.0) -> None:
-        base = self.rest_drain_rate * (self.night_drain_multiplier if is_night else 1.0)
+    def apply_rest_drain(self, temperature: float = 15.0) -> None:
+        base = self.rest_drain_rate
         temp_norm = (temperature - TEMP_MIN_C) / (TEMP_MAX_C - TEMP_MIN_C)
         cold_mult = 1.0 + (REST_COLD_MULTIPLIER - 1.0) * (1.0 - temp_norm)
         self.rest = max(0.0, self.rest - base * cold_mult)

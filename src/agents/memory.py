@@ -45,7 +45,11 @@ class Memory(BaseModel):
             del entries[MEMORY_CAP:]
 
     def query(
-        self, kind: str, tick: int, urgency: float = 0.0, familiarity: bool = False
+        self,
+        kind: str,
+        tick: int,
+        familiarity: bool = False,
+        pos: Pos | None = None,
     ) -> Pos | None:
 
         entries = [
@@ -55,6 +59,11 @@ class Memory(BaseModel):
 
         if not entries:
             return None
+
+        if pos is not None:
+            return min(
+                entries, key=lambda e: abs(e.pos.x - pos.x) + abs(e.pos.y - pos.y)
+            ).pos
 
         return max(entries, key=lambda e: e.score(tick, familiarity=familiarity)).pos
 
