@@ -73,7 +73,6 @@ class Simulation:
         agent: Agent,
         sleeping_tiles: set[Pos],
     ) -> VisionSnapshot:
-        vision = float(agent.vision_range)
 
         food_targets = self.vegetation.visible_for(agent.id)
         if (
@@ -85,7 +84,7 @@ class Simulation:
             if close_plants:
                 food_targets = close_plants
 
-        visible_water = self.world.rivers.tiles_near(agent.pos, int(vision))
+        visible_water = self.world.rivers.tiles_near(agent.pos, agent.vision_range)
 
         if agent.needs.rest < 0.8:
             visible_rest = self.world.suitable_rest_in_vision(agent, 10, sleeping_tiles)
@@ -98,20 +97,7 @@ class Simulation:
             visible_rest=visible_rest,
         )
 
-    def _decide_agent_step(
-        self,
-        agent: Agent,
-        occupied_tiles: set[Pos],
-        sleeping_tiles: set[Pos],
-    ) -> None:
-        moves = self.world.valid_moves(agent.pos)
-        if not moves:
-            return
-
-        valid_moves = [m for m in moves if m not in occupied_tiles]
-        if not valid_moves:
-            return
-
+    def _apply_busy_actions(self, agent: Agent) -> tuple[float, bool]:
         shade = self.vegetation.shade_at(agent.pos)
         temperature = cfg.temp_to_c(
             max(0.0, self.world.weather.temperature_grid[agent.get_pos_idx()] - shade)
@@ -127,23 +113,36 @@ class Simulation:
         if agent.needs.is_drinking:
             agent.drink()
 
-        if agent.needs.is_busy:
-            agent.planned_steps = []
+        return temperature, agent.needs.is_busy
+
+    def _decide_agent_step(
+        self,
+        agent: Agent,
+        occupied_tiles: set[Pos],
+        sleeping_tiles: set[Pos],
+    ) -> None:
+        moves = self.world.valid_moves(agent.pos)
+        if not moves:
+            return
+
+        valid_moves = [m for m in moves if m not in occupied_tiles]
+        if not valid_moves:
+            return
+
+        temperature, is_busy = self._apply_busy_actions(agent)
+
+        if is_busy:
+            agent.planned_steps.clear()
             agent.next_decision_tick = self.tick_count + 1
             return
 
         snapshot = self._build_vision_snapshot(agent, sleeping_tiles)
-        vision = float(agent.vision_range)
-        mate_pos = self.agents.find_mate_target(agent, vision, self.tick_count)
+        agent.update_memory(snapshot)
+
+        mate_pos = self.agents.find_mate_target(agent, self.tick_count)
+
         at_river_tile = self.world.rivers.is_river_tile(agent.pos)
         local_plant = self.vegetation.fruiting_plant_at(agent.pos)
-
-        agent.update_memory(
-            food_targets=snapshot.food_targets,
-            visible_water=snapshot.visible_water,
-            visible_rest=snapshot.visible_rest,
-            tick=self.tick_count,
-        )
 
         agent.plan_steps(
             mate_pos=mate_pos,
@@ -168,22 +167,9 @@ class Simulation:
         agent: Agent,
         occupied_tiles: set[Pos],
     ) -> None:
-        shade = self.vegetation.shade_at(agent.pos)
-        temperature = cfg.temp_to_c(
-            max(0.0, self.world.weather.temperature_grid[agent.get_pos_idx()] - shade)
-        )
-        tile_quality = self.world.rest_quality_at(agent.pos)
+        temperature, is_busy = self._apply_busy_actions(agent)
 
-        if agent.needs.is_sleeping:
-            agent.sleep(tile_quality)
-
-        if agent.needs.harvest_count > 0:
-            self._harvest_tick(agent)
-
-        if agent.needs.is_drinking:
-            agent.drink()
-
-        if agent.needs.is_busy:
+        if is_busy:
             agent.planned_steps.clear()
             agent.next_decision_tick = self.tick_count + 1
         else:
@@ -197,13 +183,10 @@ class Simulation:
 
     def _process_agents(
         self,
-        all_living: list,
-        occupied_tiles: set,
-        sleeping_tiles: set,
+        all_living: list[Agent],
+        occupied_tiles: set[Pos],
+        sleeping_tiles: set[Pos],
     ) -> None:
-        # agents take turns making decisions. Half the agents make decisions on even number ticks
-        # and the others make decisions on odd number ticks
-        # All agents carry out two ticks per decision
 
         deciding_agents = [
             a for a in all_living if self.tick_count >= a.next_decision_tick

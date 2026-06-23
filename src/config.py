@@ -68,6 +68,8 @@ REST_COLD_MULTIPLIER = (
 REST_RESTORE_MIN = 0.005  # restore per tick on worst rest tile
 REST_RESTORE_MAX = 0.025  # restore per tick on best rest tile
 
+DRAIN_RATE_MULTIPLIER = 1  # speeds up or slows down all the drain rates together
+
 # ── Rest spot quality ─────────────────────────────────────────────────────────
 
 REST_NOISE_WEIGHT = 0.5  # contribution from spatial noise
@@ -80,9 +82,8 @@ MEMORY_REST_BONUS = (
 
 # ── Reproduction ──────────────────────────────────────────────────────────────
 
-REPRODUCTION_HUNGER_THRESHOLD = 0.85  # hunger [0,1] required to mate
 REPRODUCTION_CHANCE = 0.07
-REPRODUCTION_RANGE = 3  # manhattan distance within which mating can occur
+REPRODUCTION_RANGE = 2  # manhattan distance within which mating can occur
 MATING_COOLDOWN = 10  # ticks an agent must wait before mating again
 
 # ── Decision making ───────────────────────────────────────────────────────────
@@ -94,7 +95,9 @@ HARVEST_COST: dict[str, int] = {
     "berry_bush": 3,
     "bilberry": 5,
 }
-IDLE_THRESHOLD = 0.15  # minimum urgency score to start purposeful action when unoccupied
+IDLE_THRESHOLD = (
+    0.25  # minimum urgency score to start purposeful action when unoccupied
+)
 
 BREAKAWAY_MARGIN = 0.20  # competing urgency must exceed current task's urgency by this much to interrupt
 DECISION_STRIDE = 2  # ticks between full agent decisions
@@ -136,9 +139,6 @@ SEED_HOMOZYGOUS_RATE = 0.05
 # ── Memory ────────────────────────────────────────────────────────────────────
 
 MEMORY_CAP = 10
-CONFIDENCE_PRUNE = 0.05
-DECAY_RATE = 0.001
-FAMILIARITY_WEIGHT = 0.2  # log-tapered bonus per revisit to a rest tile
 
 LOGS_DIR = Path(__file__).parent.parent / "logs"
 DEBUG_HARVEST = True  # set False to disable harvest debug logging

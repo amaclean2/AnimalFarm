@@ -22,24 +22,28 @@ def reproduce(world: World, agents: Agents, tick_count: int) -> int:
     for i, agent in enumerate(all_agents):
         if agent.id in paired or not agent.is_eligible_to_mate(tick_count):
             continue
+
         for other in all_agents[i + 1 :]:
             if other.id in paired or not other.is_eligible_to_mate(tick_count):
                 continue
+
             if abs(agent.x - other.x) + abs(agent.y - other.y) > REPRODUCTION_RANGE:
                 continue
+
             eligible_pairs += 1
             if random.random() >= _cfg.REPRODUCTION_CHANCE:
                 continue
 
-            spawn_candidates = [
+            spawn_tile_candidates = [
                 pos
                 for pos in world.valid_moves(agent.pos)
                 if not world.rivers.is_river_tile(pos)
             ]
-            if not spawn_candidates:
+
+            if not spawn_tile_candidates:
                 continue
 
-            spawn_pos = random.choice(spawn_candidates)
+            spawn_pos = random.choice(spawn_tile_candidates)
             newborn = agents.add(spawn_pos, birth_tick=tick_count)
 
             child_genome = mutate(

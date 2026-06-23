@@ -1,100 +1,59 @@
-import math
-
 from pydantic import BaseModel
 
-from config import MEMORY_CAP, CONFIDENCE_PRUNE, DECAY_RATE, FAMILIARITY_WEIGHT
+from config import MEMORY_CAP
 from pos import Pos
 
 
-class MemoryEntry(BaseModel):
-    pos: Pos
-    quality: float
-    added_tick: int
-    visit_count: int = 1
-    decay_rate: float = DECAY_RATE
-
-    def confidence(self, tick: int) -> float:
-        return max(0.0, 1.0 - (tick - self.added_tick) * self.decay_rate)
-
-    def score(self, tick: int, familiarity: bool = False) -> float:
-        base = self.quality * self.confidence(tick)
-        if familiarity and self.visit_count > 1:
-            base *= 1.0 + FAMILIARITY_WEIGHT * math.log1p(self.visit_count - 1)
-        return base
-
-
 class Memory(BaseModel):
-    food: list[MemoryEntry] = []
-    water: list[MemoryEntry] = []
-    rest: list[MemoryEntry] = []
+    food: list[Pos] = []
+    water: list[Pos] = []
+    rest: list[Pos] = []
 
-    def observe(self, pos: Pos, kind: str, quality: float, tick: int) -> None:
+    def observe(self, pos: Pos, kind: str, agent_pos: Pos) -> None:
         entries = self._bucket(kind)
 
-        for entry in entries:
-            if entry.pos == pos:
-                entry.quality = quality
-                entry.added_tick = tick
-                entry.visit_count += 1
-                return
+        if pos in entries:
+            return
 
-        entries.append(MemoryEntry(pos=pos, quality=quality, added_tick=tick))
+        entries.append(pos)
 
         if len(entries) > MEMORY_CAP:
-            entries.sort(key=lambda e: e.quality, reverse=True)
-            del entries[MEMORY_CAP:]
+            furthest = max(
+                entries, key=lambda p: abs(p.x - agent_pos.x) + abs(p.y - agent_pos.y)
+            )
+            entries.remove(furthest)
 
     def query(
         self,
         kind: str,
-        tick: int,
-        familiarity: bool = False,
-        pos: Pos | None = None,
+        pos: Pos,
+        max_dist: int | None = None,
+        exclude: set[Pos] | None = None,
     ) -> Pos | None:
-
-        entries = [
-            e for e in self._bucket(kind) if e.confidence(tick) >= CONFIDENCE_PRUNE
-        ]
-        self._set_bucket(kind, entries)
+        entries = self._bucket(kind)
 
         if not entries:
             return None
 
-        if pos is not None:
-            return min(
-                entries, key=lambda e: abs(e.pos.x - pos.x) + abs(e.pos.y - pos.y)
-            ).pos
+        if max_dist is not None:
+            entries = [
+                e for e in entries if abs(e.x - pos.x) + abs(e.y - pos.y) <= max_dist
+            ]
 
-        return max(entries, key=lambda e: e.score(tick, familiarity=familiarity)).pos
+            if not entries:
+                return None
 
-    def best_score(self, kind: str, tick: int, familiarity: bool = False) -> float:
-        entries = [
-            entry
-            for entry in self._bucket(kind)
-            if entry.confidence(tick) >= CONFIDENCE_PRUNE
-        ]
-        if not entries:
-            return 0.0
-        return max(entry.score(tick, familiarity=familiarity) for entry in entries)
+        if exclude:
+            entries = [e for e in entries if e not in exclude]
 
-    def quality_of(self, kind: str, pos: Pos) -> float:
-        for entry in self._bucket(kind):
-            if entry.pos == pos:
-                return entry.quality
-        return 0.0
+            if not entries:
+                return None
 
-    def _bucket(self, kind: str) -> list[MemoryEntry]:
+        return min(entries, key=lambda e: abs(e.x - pos.x) + abs(e.y - pos.y))
+
+    def _bucket(self, kind: str) -> list[Pos]:
         return {
             "food": self.food,
             "water": self.water,
             "rest": self.rest,
         }[kind]
-
-    def _set_bucket(self, kind: str, entries: list[MemoryEntry]) -> None:
-        match kind:
-            case "food":
-                self.food = entries
-            case "water":
-                self.water = entries
-            case "rest":
-                self.rest = entries

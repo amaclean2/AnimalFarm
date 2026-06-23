@@ -14,9 +14,7 @@ from config import (
     MATING_COOLDOWN,
     MAX_AGE,
     MATURITY_AGE,
-    REPRODUCTION_HUNGER_THRESHOLD,
     VISION_RANGE,
-    WATER_BASE_DRAIN,
     WORLD_WIDTH,
     WORLD_HEIGHT,
 )
@@ -44,7 +42,6 @@ class Agent(BaseModel):
     y: int
     age: int = 0
     alive: bool = True
-    is_adult: bool = False
     birth_tick: int = 0
     vision_range: int = VISION_RANGE
 
@@ -73,9 +70,7 @@ class Agent(BaseModel):
 
     @property
     def last_food_seen(self) -> Pos | None:
-        if not self.memory.food:
-            return None
-        return max(self.memory.food, key=lambda e: e.added_tick).pos
+        return self.memory.query("food", self.pos)
 
     def move_to(self, pos: Pos) -> None:
         self.x = pos.x
@@ -104,9 +99,6 @@ class Agent(BaseModel):
             or not self.path
         )
 
-    def apply_rest_drain(self, temperature: float = 15.0) -> None:
-        self.needs.apply_rest_drain(temperature)
-
     def sleep(self, tile_quality: float = 1.0) -> bool:
         self.age += 1
         sleeping_complete = self.needs.sleep(tile_quality)
@@ -114,13 +106,7 @@ class Agent(BaseModel):
             Event("agent_sleeping", {"agent": self.model_dump(mode="json")})
         )
 
-        if sleeping_complete:
-            return True
-
-        return False
-
-    def apply_hunger_drain(self, is_river: bool) -> None:
-        self.needs.apply_hunger_drain(self.age, self.is_adult, is_river)
+        return sleeping_complete
 
     def harvest(self) -> bool:
         self.age += 1
@@ -144,28 +130,21 @@ class Agent(BaseModel):
         self.needs.drink()
         event_bus.publish(Event("agent_drank", {"agent_id": str(self.id)}))
 
-    def update_memory(
-        self,
-        food_targets: list,
-        visible_water: list[Pos],
-        visible_rest: Pos | None,
-        tick: int,
-    ) -> None:
-        for plant in food_targets:
-            self.memory.observe(plant.pos, "food", 1.0, tick)
+    def update_memory(self, snapshot: "VisionSnapshot") -> None:
+        for plant in snapshot.food_targets:
+            self.memory.observe(plant.pos, "food", self.pos)
 
-        for pos in visible_water:
-            self.memory.observe(pos, "water", 1.0, tick)
+        for pos in snapshot.visible_water:
+            self.memory.observe(pos, "water", self.pos)
 
-        if visible_rest is not None:
-            self.memory.observe(visible_rest, "rest", 1.0, tick)
+        if snapshot.visible_rest is not None:
+            self.memory.observe(snapshot.visible_rest, "rest", self.pos)
 
-    def is_eligible_to_mate(self, tick: int) -> bool:
+    def is_eligible_to_mate(self, tick_count: int) -> bool:
         return (
             self.age >= MATURITY_AGE
-            and self.needs.hunger >= REPRODUCTION_HUNGER_THRESHOLD
             and not self.needs.is_sleeping
-            and tick - self.last_mated_tick >= MATING_COOLDOWN
+            and (tick_count - self.last_mated_tick) >= MATING_COOLDOWN
         )
 
     def calculate_urgencies(self):
@@ -173,39 +152,47 @@ class Agent(BaseModel):
         closest_water_resource = (
             min(
                 water_resources,
-                key=lambda e: abs(e.pos.x - self.x) + abs(e.pos.y - self.y),
+                key=lambda e: abs(e.x - self.x) + abs(e.y - self.y),
             )
             if water_resources
             else None
         )
         closest_water_resource_dist = (
-            abs(closest_water_resource.pos.x - self.x)
-            + abs(closest_water_resource.pos.y - self.y)
+            abs(closest_water_resource.x - self.x)
+            + abs(closest_water_resource.y - self.y)
             if closest_water_resource is not None
             else None
         )
-        thirst_ticks_to_empty = self.needs.water / WATER_BASE_DRAIN
 
         thirst_urgency = (1.0 - self.needs.water) ** 2
 
         if (
             closest_water_resource_dist is not None
-            and closest_water_resource_dist + 2 >= thirst_ticks_to_empty
+            and closest_water_resource_dist + 2
+            >= self.needs.get_ticks_to_empty("water")
         ):
             thirst_urgency = 1.0
+
+        rest_urgency = (1.0 - self.needs.rest) ** 2
+        max_dist_to_rest = self.needs.get_ticks_to_empty("rest")
+
+        reachable_rest = self.memory.query("rest", self.pos, max_dist=max_dist_to_rest)
+
+        if self.memory.rest and reachable_rest is None:
+            rest_urgency = 1.0
 
         return {
             "thirst": thirst_urgency,
             "hunger": (1.0 - self.needs.hunger) ** 2,
-            "rest": (1.0 - self.needs.rest) ** 2,
+            "rest": rest_urgency,
         }
 
     def choose_action(
         self,
         mate_pos: Pos | None,
-        tick: int,
         at_river_tile: bool = False,
         local_plant: Plant | None = None,
+        occupied_tiles: set[Pos] | None = None,
     ) -> Task:
         active_task_name = self.active_task.name
         is_idle = active_task_name == "explore"
@@ -226,9 +213,13 @@ class Agent(BaseModel):
         ):
             return Task(priority=0, name="harvest_food", goal_pos=self.pos)
 
-        food_target = self.memory.query("food", tick, pos=self.pos)
-        water_target = self.memory.query("water", tick, pos=self.pos)
-        rest_target = self.memory.query("rest", tick, pos=self.pos)
+        rest_ticks_to_empty = self.needs.get_ticks_to_empty("rest")
+
+        food_target = self.memory.query("food", self.pos, exclude=occupied_tiles)
+        water_target = self.memory.query("water", self.pos)
+        if water_target and occupied_tiles and water_target in occupied_tiles:
+            water_target = self.memory.query("water", self.pos, exclude={water_target})
+        rest_target = self.memory.query("rest", self.pos, max_dist=rest_ticks_to_empty)
 
         if (
             active_task_name != "thirst_explore"
@@ -334,8 +325,7 @@ class Agent(BaseModel):
                 )
                 return task
 
-        if mate_pos and self.is_eligible_to_mate(tick):
-            print(mate_pos)
+        if mate_pos:
             return Task(priority=0, name="mate", goal_pos=mate_pos)
 
         return Task(priority=0, name="explore", goal_pos=explore_target)
@@ -371,9 +361,9 @@ class Agent(BaseModel):
     ) -> None:
         priority_task = self.choose_action(
             mate_pos=mate_pos,
-            tick=tick_count,
             at_river_tile=at_river_tile,
             local_plant=local_plant,
+            occupied_tiles=occupied_tiles,
         )
 
         if priority_task.name == "drink":
@@ -403,29 +393,31 @@ class Agent(BaseModel):
         if self.needs_replan(priority_task):
             self.path = astar(world, self.pos, priority_task.goal_pos, occupied_tiles)
 
-        self.active_task = priority_task
+        if not self.path:
+            self.active_task = Task(
+                priority=0, name="explore", goal_pos=self.get_explore_goal()
+            )
+            self.path = astar(world, self.pos, self.active_task.goal_pos)
 
-        first_step = None
+            if not self.path:
+                self.planned_steps = [self.pos]
+                self.next_decision_tick = tick_count + 1
+                return
+
+        self.active_task = priority_task
 
         step = self.path[0]
 
-        if step in valid_moves or step == priority_task.goal_pos:
-            self.path.pop(0)
-            first_step = step
-        else:
-            self.path = astar(
-                world,
-                self.pos,
-                priority_task.goal_pos,
-                occupied_tiles,
-            )
+        if step not in valid_moves and step != priority_task.goal_pos:
+            self.planned_steps = [self.pos]
+            self.next_decision_tick = tick_count + 1
+            return
 
-            if self.path[0] in valid_moves or self.path[0] == priority_task.goal_pos:
-                first_step = self.path.pop(0)
+        self.path.pop(0)
 
-        steps = [first_step]
+        steps = [step]
 
-        if first_step != self.pos and self.path:
+        if self.path:
             steps.append(self.path[0])
 
         self.planned_steps = steps
@@ -469,15 +461,15 @@ class Agent(BaseModel):
         occupied.add(self.pos)
         self.age += 1
 
-        self.apply_rest_drain(temperature)
-        self.apply_hunger_drain(is_river_tile(self.pos))
-        self.apply_thirst_drain()
+        self.needs.apply_rest_drain(temperature)
+        self.needs.apply_hunger_drain(self.age, is_river_tile(self.pos))
+        self.needs.apply_thirst_drain()
 
         event_bus.publish(Event("agent_moved", {"agent": self.model_dump(mode="json")}))
 
     def get_explore_goal(self) -> Pos:
         angle = random.uniform(0, 2 * math.pi)
-        dist = random.randint(15, 35)
+        dist = random.randint(15, 25)
         return Pos(
             max(0, min(WORLD_WIDTH - 1, int(self.x + dist * math.cos(angle)))),
             max(0, min(WORLD_HEIGHT - 1, int(self.y + dist * math.sin(angle)))),

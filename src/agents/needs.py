@@ -16,6 +16,7 @@ from config import (
     REST_RESTORE_MAX,
     TEMP_MIN_C,
     TEMP_MAX_C,
+    DRAIN_RATE_MULTIPLIER,
 )
 
 
@@ -30,16 +31,29 @@ class NeedState(BaseModel):
     metabolism: float = 1.0
     water_drain_rate: float = WATER_BASE_DRAIN
     rest_drain_rate: float = REST_BASE_DRAIN
+    hunger_drain_rate: float = HUNGER_BASE_DRAIN
 
     @property
     def is_busy(self) -> bool:
         return self.is_sleeping or self.harvest_count > 0 or self.is_drinking
 
+    def get_ticks_to_empty(self, need: str) -> int:
+        drain_map = {
+            "hunger": self.hunger_drain_rate,
+            "water": self.water_drain_rate,
+            "rest": self.rest_drain_rate,
+        }
+        level = getattr(self, need)
+        rate = drain_map[need] * DRAIN_RATE_MULTIPLIER
+        return int(level / rate) if rate > 0 else 0
+
     def apply_thirst_drain(self) -> None:
-        self.water = max(0.0, self.water - self.water_drain_rate)
+        self.water = max(
+            0.0, self.water - (self.water_drain_rate * DRAIN_RATE_MULTIPLIER)
+        )
 
     def apply_rest_drain(self, temperature: float = 15.0) -> None:
-        base = self.rest_drain_rate
+        base = self.rest_drain_rate * DRAIN_RATE_MULTIPLIER
         temp_norm = (temperature - TEMP_MIN_C) / (TEMP_MAX_C - TEMP_MIN_C)
         cold_mult = 1.0 + (REST_COLD_MULTIPLIER - 1.0) * (1.0 - temp_norm)
         self.rest = max(0.0, self.rest - base * cold_mult)
@@ -50,14 +64,16 @@ class NeedState(BaseModel):
         if extra > 0:
             self.hunger = max(0.0, self.hunger - extra)
 
-    def apply_hunger_drain(self, age: int, is_adult: bool, is_river: bool) -> None:
-        if is_adult:
+    def apply_hunger_drain(self, age: int, is_river: bool) -> None:
+        if age >= MATURITY_AGE:
             age_mult = 1.0
         else:
             t = min(age, MATURITY_AGE) / MATURITY_AGE
             age_mult = HUNGER_INFANT_MULTIPLIER + (1.0 - HUNGER_INFANT_MULTIPLIER) * t
 
-        base = HUNGER_BASE_DRAIN * age_mult * self.metabolism
+        base = (
+            self.hunger_drain_rate * age_mult * self.metabolism * DRAIN_RATE_MULTIPLIER
+        )
         river_mult = HUNGER_RIVER_MULTIPLIER if is_river else 1.0
         self.hunger -= base * river_mult
 
