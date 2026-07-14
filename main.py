@@ -24,7 +24,7 @@ from routers import (
 from simulation import Simulation
 from world import World
 
-STATIC = Path(__file__).parent.parent / "static"
+STATIC = Path(__file__).parent / "static"
 
 _world = World(width=cfg.WORLD_WIDTH, height=cfg.WORLD_HEIGHT)
 _vegetation = VegetationManager(_world)

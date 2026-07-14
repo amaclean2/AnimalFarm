@@ -9,7 +9,7 @@ import random
 import sqlite3
 from pathlib import Path
 
-import config as _cfg
+from config import OFFSPRING_WEIGHT
 from genome import GENE_DEFAULTS, clamp_genome
 
 _DDL = """
@@ -54,13 +54,10 @@ class GenomePool:
         self._conn.executescript(_DDL)
         self._conn.commit()
 
-    # ------------------------------------------------------------------
-
     def record(self, agent, sim_id: str, died_tick: int) -> None:
-        """Write one death record.  Call before agent.die()."""
         g = agent.behavioral_genome
         lifespan = agent.age
-        fitness = lifespan * (1.0 + agent.offspring_count * _cfg.OFFSPRING_WEIGHT)
+        fitness = lifespan * (1.0 + agent.offspring_count * OFFSPRING_WEIGHT)
         self._conn.execute(
             _INSERT,
             (

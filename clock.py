@@ -42,38 +42,36 @@ class GameClock:
 
     @property
     def day_phase(self) -> float:
-        """Fraction through the current day/night cycle, 0.0–1.0."""
         return (self.tick_count % DAY_LENGTH) / DAY_LENGTH
 
     def register(self, callback: TickCallback) -> None:
         self._callbacks.append(callback)
 
     def start(self) -> None:
-        if self._state != "stopped":
-            return
         self.tick_count = 0
         self._state = "running"
         self._task = asyncio.create_task(self._run())
 
     def stop(self) -> None:
         self._state = "stopped"
+
         if self._task:
             self._task.cancel()
             self._task = None
 
     def pause(self) -> None:
-        if self._state == "running":
-            self._state = "paused"
+        self._state = "paused"
 
     def resume(self) -> None:
-        if self._state == "paused":
-            self._state = "running"
+        self._state = "running"
 
     async def _run(self) -> None:
         while self._state != "stopped":
             await asyncio.sleep(self.interval)
+
             if self._state == "running":
                 self.tick_count += 1
+                
                 for cb in self._callbacks:
                     await cb(self.tick_count)
 

@@ -1,7 +1,5 @@
 services:
   server:
     volumes:
-      - ./src:/app/src
-      - ./static:/app/static
-      - ./tests:/app/tests
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --app-dir src --reload
+      - .:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
