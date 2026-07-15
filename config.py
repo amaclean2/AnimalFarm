@@ -131,10 +131,6 @@ SPONTANEOUS_MUTATION_RATE = 0.15
 POOL_SEED_THRESHOLD = 50  # min pool rows before seeding new sims from elite
 OFFSPRING_WEIGHT = 2.0  # fitness = lifespan * (1 + offspring * this)
 DATA_DIR = Path(__file__).parent / "data"
-VISION_BOOST = 8  # vision range added by keen_sight mutation
-VISION_PENALTY = 6  # vision range removed by poor_sight mutation
-SEED_HETEROZYGOUS_RATE = 0.25
-SEED_HOMOZYGOUS_RATE = 0.05
 
 # ── Memory ────────────────────────────────────────────────────────────────────
 

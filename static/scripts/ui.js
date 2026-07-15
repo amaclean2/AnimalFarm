@@ -1,9 +1,4 @@
-import {
-  UUID_PATTERN,
-  API_BASE,
-  MUTATION_COLORS,
-  MUTATION_PRIORITY,
-} from "./constants.js";
+import { UUID_PATTERN, API_BASE } from "./constants.js";
 import {
   agents,
   plants,
@@ -94,7 +89,6 @@ export const updateAgentPanel = (agent) => {
       "action",
       agent.active_task ? agent.active_task.name.replace(/_/g, " ") : "—",
     ],
-    ["offspring", agent.offspring_count ?? 0],
     ["breakaway", fmt(g.breakaway_threshold)],
   ];
 
@@ -210,6 +204,64 @@ export const applyClockState = (state) => {
 
 let pausedForStats = false;
 
+const GENE_LABELS = {
+  idle_threshold: "idle",
+  breakaway_margin: "breakaway",
+  metabolism: "metab",
+  water_drain_rate: "water",
+  rest_drain_rate: "rest",
+  vision: "vision",
+};
+
+const fmtGene = (v) =>
+  Math.abs(v) < 0.1 ? v.toFixed(4) : v.toFixed(3);
+
+// Diverging chart: default value is the centre line. A gene whose population
+// average has drifted above its default rises (grew); below default drops (shrank).
+const renderGeneChart = (geneStats) => {
+  const UP = "#2aa7c4";
+  const DOWN = "#e08a3c";
+
+  const labelOf = (g) => GENE_LABELS[g.name] ?? g.name.replace(/_/g, " ");
+
+  const cols = geneStats
+    .map((g) => {
+      const label = labelOf(g);
+      const up = g.norm >= 0;
+      const heightPct = (Math.abs(g.norm) * 50).toFixed(1); // half the plot per side
+      const cls = up ? "up" : "down";
+      const color = up ? UP : DOWN;
+      const drift = (((g.avg - g.default) / g.default) * 100).toFixed(1);
+      const sign = g.avg - g.default >= 0 ? "+" : "";
+      const title = `${label}: avg ${fmtGene(g.avg)} · default ${fmtGene(
+        g.default,
+      )} (${sign}${drift}%)`;
+      return `
+        <div class="gene-col" title="${title}">
+          <div class="gene-fill ${cls}" style="height:${heightPct}%;background:${color}">
+            <span class="gene-val">${fmtGene(g.avg)}</span>
+          </div>
+        </div>`;
+    })
+    .join("");
+
+  const names = geneStats
+    .map(
+      (g) =>
+        `<div class="gene-name">${labelOf(g)}<span class="gene-default">${fmtGene(
+          g.default,
+        )}</span></div>`,
+    )
+    .join("");
+
+  return `
+    <div class="stats-section gene-section">
+      <h4>Genetic Drift</h4>
+      <div class="gene-plot-row">${cols}</div>
+      <div class="gene-name-row">${names}</div>
+    </div>`;
+};
+
 export const openStats = async () => {
   if (getClockState() === "running") {
     await fetch(`${API_BASE}/clock/pause`, { method: "POST" });
@@ -224,8 +276,8 @@ export const openStats = async () => {
   const scalarEntries = Object.entries(data).filter(
     ([, value]) => typeof value !== "object",
   );
-  const arrayEntries = Object.entries(data).filter(([, value]) =>
-    Array.isArray(value),
+  const arrayEntries = Object.entries(data).filter(
+    ([key, value]) => Array.isArray(value) && key !== "gene_stats",
   );
 
   let html = "";
@@ -244,30 +296,9 @@ export const openStats = async () => {
     html += `</div>`;
   }
 
-  const mutationCounts = data.mutation_counts ?? {};
-  const maxMutCount = Math.max(1, ...Object.values(mutationCounts));
-  const allMutations = [
-    ...MUTATION_PRIORITY,
-    ...Object.keys(mutationCounts).filter(
-      (m) => !MUTATION_PRIORITY.includes(m),
-    ),
-  ];
-
-  html += `<div class="stats-section"><h4>Mutations</h4><div class="mutation-histogram">`;
-  html += allMutations
-    .map((m) => {
-      const count = mutationCounts[m] ?? 0;
-      const pct = ((count / maxMutCount) * 100).toFixed(1);
-      const color = MUTATION_COLORS[m] ?? "#666";
-      return `
-      <div class="mutation-row">
-        <span class="mut-label">${m.replace(/_/g, " ")}</span>
-        <div class="mut-track"><div class="mut-fill" style="width:${pct}%;background:${color}"></div></div>
-        <span class="mut-count">${count}</span>
-      </div>`;
-    })
-    .join("");
-  html += `</div></div>`;
+  if (Array.isArray(data.gene_stats) && data.gene_stats.length) {
+    html += renderGeneChart(data.gene_stats);
+  }
 
   html += arrayEntries
     .map(([key, rows]) => {

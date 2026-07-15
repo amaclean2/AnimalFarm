@@ -342,45 +342,92 @@ button:disabled {
   font-size: 12px;
 }
 
-.mutation-histogram {
+.gene-plot-row {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 20px;
+  align-items: stretch;
+  gap: 2px;
+  height: 120px;
 }
 
-.mutation-row {
-  display: grid;
-  grid-template-columns: 130px 1fr 32px;
-  align-items: center;
-  gap: 8px;
+/* the default value — centre line the bars diverge from */
+.gene-plot-row::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: #3a3a3a;
+  pointer-events: none;
 }
 
-.mutation-row .mut-label {
-  font-size: 11px;
-  color: #999;
-  text-transform: capitalize;
+.gene-col {
+  position: relative;
+  flex: 1;
+}
+
+.gene-fill {
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  transition: height 0.3s ease;
+}
+
+.gene-fill.up {
+  bottom: 50%;
+  border-radius: 4px 4px 0 0;
+}
+
+.gene-fill.down {
+  top: 50%;
+  border-radius: 0 0 4px 4px;
+}
+
+.gene-val {
+  position: absolute;
+  left: -50%;
+  right: -50%;
+  text-align: center;
+  font-size: 9px;
+  color: #bbb;
   white-space: nowrap;
 }
 
-.mutation-row .mut-track {
-  height: 8px;
-  background: #222;
-  border-radius: 4px;
+.gene-fill.up .gene-val {
+  bottom: 100%;
+  margin-bottom: 3px;
+}
+
+.gene-fill.down .gene-val {
+  top: 100%;
+  margin-top: 3px;
+}
+
+.gene-name-row {
+  display: flex;
+  gap: 2px;
+  margin-top: 6px;
+}
+
+.gene-name {
+  flex: 1;
+  text-align: center;
+  font-size: 10px;
+  color: #777;
+  text-transform: capitalize;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.mutation-row .mut-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.3s ease;
-}
-
-.mutation-row .mut-count {
-  font-size: 11px;
+.gene-default {
+  display: block;
+  margin-top: 2px;
+  font-size: 9px;
   color: #555;
-  text-align: right;
 }
+
 
 .age-bar {
   width: 80px;

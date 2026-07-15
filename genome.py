@@ -1,10 +1,3 @@
-"""
-Behavioural genome — continuous heritable traits that evolve across generations.
-
-Pure functions only; no agent coupling beyond dict-access on `agent.behavioral_genome`
-and `agent.needs`.
-"""
-
 import random
 
 from config import (
@@ -12,6 +5,7 @@ from config import (
     BREAKAWAY_MARGIN,
     WATER_BASE_DRAIN,
     REST_BASE_DRAIN,
+    VISION_RANGE,
 )
 
 GENE_RANGES: dict[str, tuple[float, float]] = {
@@ -20,6 +14,7 @@ GENE_RANGES: dict[str, tuple[float, float]] = {
     "metabolism": (0.5, 2.0),
     "water_drain_rate": (0.003, 0.025),
     "rest_drain_rate": (0.001, 0.010),
+    "vision": (5.0, 40.0),
 }
 
 GENE_DEFAULTS: dict[str, float] = {
@@ -28,6 +23,7 @@ GENE_DEFAULTS: dict[str, float] = {
     "metabolism": 1.0,
     "water_drain_rate": WATER_BASE_DRAIN,
     "rest_drain_rate": REST_BASE_DRAIN,
+    "vision": float(VISION_RANGE),
 }
 
 
@@ -68,7 +64,8 @@ def mutate(genome: dict[str, float], mutation_rate: float) -> dict[str, float]:
 
 
 def apply_to_agent(agent, genome: dict[str, float]) -> None:
-    """Push genome values that map to NeedState fields onto the agent."""
+    """Push genome values that map to NeedState/Agent fields onto the agent."""
     agent.needs.metabolism = genome["metabolism"]
     agent.needs.water_drain_rate = genome["water_drain_rate"]
     agent.needs.rest_drain_rate = genome["rest_drain_rate"]
+    agent.vision_range = round(genome["vision"])

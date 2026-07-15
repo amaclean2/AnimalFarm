@@ -11,5 +11,7 @@
         ]
       }
     ]
-  }
+  },
+  "viewMode": "verbose",
+  "showThinkingSummaries": true
 }

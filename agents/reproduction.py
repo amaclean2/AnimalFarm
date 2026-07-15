@@ -5,7 +5,6 @@ import config as _cfg
 from agents import Agents
 import event_bus
 from events import Event
-from agents.mutations import inherit_or_mutate
 from config import (
     REPRODUCTION_RANGE,
 )
@@ -51,7 +50,6 @@ def reproduce(world: World, agents: Agents, tick_count: int) -> int:
                 _cfg.SPONTANEOUS_MUTATION_RATE,
             )
             newborn.behavioral_genome = child_genome
-            inherit_or_mutate(newborn, agent, other)
             apply_to_agent(newborn, child_genome)
 
             agent.offspring_count += 1

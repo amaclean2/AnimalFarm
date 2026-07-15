@@ -45,8 +45,6 @@ class Agent(BaseModel):
     birth_tick: int = 0
     vision_range: int = VISION_RANGE
 
-    genotype: dict[str, int] = Field(default_factory=dict)
-    mutations: list[str] = Field(default_factory=list)
     behavioral_genome: dict[str, float] = Field(default_factory=default_genome)
     offspring_count: int = 0
 

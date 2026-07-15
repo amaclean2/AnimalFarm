@@ -1,10 +1,4 @@
-import {
-  WORLD_WIDTH,
-  WORLD_HEIGHT,
-  MUTATION_COLORS,
-  MUTATION_PRIORITY,
-  NO_MUTATION_COLOR,
-} from "./constants.js";
+import { WORLD_WIDTH, WORLD_HEIGHT, AGENT_COLOR } from "./constants.js";
 import {
   agents,
   plants,
@@ -87,12 +81,6 @@ const drawAgentPath = (agent, renderX, renderY) => {
   );
 
   ctx.restore();
-};
-
-const agentColor = (agent) => {
-  const expressed = agent.mutations ?? [];
-  const match = MUTATION_PRIORITY.find((m) => expressed.includes(m));
-  return match ? MUTATION_COLORS[match] : NO_MUTATION_COLOR;
 };
 
 const isVisible = (screenX, screenY) =>
@@ -357,7 +345,7 @@ const drawLivingAgents = () => {
 
     ctx.beginPath();
     ctx.arc(centerX, centerY, viewport.cellSize * 0.3, 0, Math.PI * 2);
-    ctx.fillStyle = agentColor(agent);
+    ctx.fillStyle = AGENT_COLOR;
     ctx.fill();
     ctx.strokeStyle = "rgba(255,255,255,0.15)";
     ctx.lineWidth = 1;

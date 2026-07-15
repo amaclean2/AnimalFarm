@@ -9,7 +9,6 @@ from pydantic import BaseModel
 import deps
 from clock import clock
 from connections import broadcast
-from agents.mutations import seed_genotype
 from genome import apply_to_agent, mutate, random_genome
 from pos import Pos
 
@@ -124,7 +123,6 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
             else random_genome()
         )
         agent.behavioral_genome = genome
-        seed_genotype(agent)
         apply_to_agent(agent, genome)
         agents_born.append(agent.model_dump(mode="json"))
 
