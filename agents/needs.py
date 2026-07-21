@@ -10,7 +10,6 @@ from config import (
     WATER_BASE_DRAIN,
     DRINK_RESTORE,
     REST_BASE_DRAIN,
-    REST_NIGHT_MULTIPLIER,
     REST_COLD_MULTIPLIER,
     REST_RESTORE_MIN,
     REST_RESTORE_MAX,
@@ -27,7 +26,6 @@ class NeedState(BaseModel):
     is_sleeping: bool = False
     is_drinking: bool = False
     harvest_count: int = 0
-    night_drain_multiplier: float = REST_NIGHT_MULTIPLIER
     metabolism: float = 1.0
     water_drain_rate: float = WATER_BASE_DRAIN
     rest_drain_rate: float = REST_BASE_DRAIN

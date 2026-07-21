@@ -25,8 +25,8 @@ _PLANT_SPECS: dict[str, dict] = {
         "precip_hi": 0.25,
         "requires_river": False,
         "max_fruit": 8,
-        "base_growth_rate": 0.01,
-        "germination_rate": 0.001,
+        "base_growth_rate": 0.005,
+        "germination_rate": 0.0005,
     },
     "wild_plum": {
         "temp_lo": 0.0,
@@ -35,8 +35,8 @@ _PLANT_SPECS: dict[str, dict] = {
         "precip_hi": 1.0,
         "requires_river": True,
         "max_fruit": 20,
-        "base_growth_rate": 0.06,
-        "germination_rate": 0.02,
+        "base_growth_rate": 0.03,
+        "germination_rate": 0.01,
     },
     "fig_tree": {
         "temp_lo": 18.0,
@@ -45,8 +45,8 @@ _PLANT_SPECS: dict[str, dict] = {
         "precip_hi": 1.0,
         "requires_river": False,
         "max_fruit": 14,
-        "base_growth_rate": 0.04,
-        "germination_rate": 0.01,
+        "base_growth_rate": 0.02,
+        "germination_rate": 0.005,
     },
     "berry_bush": {
         "temp_lo": 5.0,
@@ -55,8 +55,8 @@ _PLANT_SPECS: dict[str, dict] = {
         "precip_hi": 0.65,
         "requires_river": False,
         "max_fruit": 10,
-        "base_growth_rate": 0.03,
-        "germination_rate": 0.01,
+        "base_growth_rate": 0.015,
+        "germination_rate": 0.005,
     },
     "bilberry": {
         "temp_lo": -10.0,
@@ -65,8 +65,8 @@ _PLANT_SPECS: dict[str, dict] = {
         "precip_hi": 0.60,
         "requires_river": False,
         "max_fruit": 6,
-        "base_growth_rate": 0.02,
-        "germination_rate": 0.005,
+        "base_growth_rate": 0.01,
+        "germination_rate": 0.0025,
     },
 }
 
@@ -94,7 +94,7 @@ class Plant(BaseModel):
 
     @property
     def ticks_per_fruit(self) -> int:
-        return cfg.HARVEST_COST.get(self.plant_type, 2)
+        return cfg.HARVEST_COST.get(self.plant_type, 10)
 
     def remove(self, n: int) -> None:
         self.fruit_count = max(0.0, self.fruit_count - n)

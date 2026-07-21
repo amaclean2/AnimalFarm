@@ -61,7 +61,6 @@ WATER_BASE_DRAIN = 0.01
 DRINK_RESTORE = 0.20  # water restored per drink (~5 drinks to go 0 → full)
 
 REST_BASE_DRAIN = 0.003
-REST_NIGHT_MULTIPLIER = 3.0  # drain multiplier while awake at night
 REST_COLD_MULTIPLIER = (
     2.0  # drain multiplier at minimum temperature (scales to 1× at max temp)
 )
@@ -89,11 +88,11 @@ MATING_COOLDOWN = 10  # ticks an agent must wait before mating again
 # ── Decision making ───────────────────────────────────────────────────────────
 
 HARVEST_COST: dict[str, int] = {
-    "date_palm": 6,
-    "wild_plum": 2,
-    "fig_tree": 4,
-    "berry_bush": 3,
-    "bilberry": 5,
+    "date_palm": 30,
+    "wild_plum": 10,
+    "fig_tree": 20,
+    "berry_bush": 15,
+    "bilberry": 25,
 }
 IDLE_THRESHOLD = (
     0.25  # minimum urgency score to start purposeful action when unoccupied
