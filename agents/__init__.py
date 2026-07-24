@@ -2,8 +2,6 @@ from uuid import UUID
 
 from agents.agent import Agent
 import config as _cfg
-import event_bus
-from events import Event
 from pos import Pos
 
 _GRID_BUCKET = 5
@@ -16,7 +14,7 @@ class Agents:
         self._data: dict[UUID, Agent] = {}
         self._grid: dict[tuple[int, int], list[Agent]] = {}
 
-    def add(self, pos: Pos, birth_tick: int = 0, age: int = 0) -> Agent:
+    def create(self, pos: Pos, birth_tick: int = 0, age: int = 0) -> Agent:
 
         if not (0 <= pos.x < self._width and 0 <= pos.y < self._height):
             raise ValueError(f"Position {pos} is out of bounds")
@@ -105,11 +103,3 @@ class Agents:
     def reset(self) -> None:
         self._data.clear()
         self._grid.clear()
-
-    def process_agent_death(self, agent_id: UUID) -> None:
-        agent = self.get(agent_id)
-        if agent:
-            agent.die()
-            event_bus.publish(
-                Event("agent_died", {"agent": agent.model_dump(mode="json")})
-            )

@@ -7,6 +7,7 @@ import deps
 from agents.agent import Agent
 from clock import clock
 from connections import broadcast
+from pos import Pos
 
 router = APIRouter(prefix="/agents")
 
@@ -19,7 +20,7 @@ class CreateAgentRequest(BaseModel):
 @router.post("", response_model=Agent, status_code=201)
 async def create_agent(body: CreateAgentRequest) -> Agent:
     try:
-        agent = deps.agents.add(body.x, body.y, birth_tick=clock.tick_count)
+        agent = deps.agents.create(Pos(body.x, body.y), birth_tick=clock.tick_count)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     await broadcast("agent_created", {"agent": agent.model_dump(mode="json")})

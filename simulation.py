@@ -5,7 +5,6 @@ from uuid import uuid4
 from agents import Agents
 from agents.agent import Agent
 from clock import DAY_LENGTH
-from genome_pool import GenomePool
 from plant import Plant, VegetationManager
 from pos import Pos
 import config as cfg
@@ -27,13 +26,11 @@ class Simulation:
         world: World,
         vegetation: VegetationManager,
         agents: Agents,
-        genome_pool: GenomePool | None = None,
     ) -> None:
         self.world = world
         self.vegetation = vegetation
         self.agents = agents
 
-        self._genome_pool = genome_pool
         self._sim_id: str = str(uuid4())[:8]
         self.tick_count: int = 0
 
@@ -43,16 +40,16 @@ class Simulation:
         self.vegetation.reset()
         self.agents.reset()
 
-    def _harvest_tick(self, agent: Agent) -> bool:
-        finished_harvesting = agent.harvest()
+    def _harvest_tick(self, agent: Agent) -> None:
+        agent.harvest()
 
-        if not finished_harvesting:
-            return False
+        if agent.needs.is_harvesting:
+            return
 
         local_plant = self.vegetation.remove_fruit_at(agent.pos)
 
         if local_plant is None:
-            return True
+            return
 
         event_bus.publish(
             Event(
@@ -66,8 +63,6 @@ class Simulation:
             )
         )
 
-        return True
-
     def _build_vision_snapshot(
         self,
         agent: Agent,
@@ -75,18 +70,22 @@ class Simulation:
     ) -> VisionSnapshot:
 
         food_targets = self.vegetation.visible_for(agent.id)
+
         if (
             agent.active_task is not None
             and agent.active_task.name == "seek_food"
             and agent.path
         ):
             close_plants = self.vegetation.nearby_in_vision(agent.id, agent.pos, 5)
+
             if close_plants:
                 food_targets = close_plants
 
         visible_water = self.world.rivers.tiles_near(agent.pos, agent.vision_range)
 
-        if agent.needs.rest < 0.8:
+        rest_seek_threshold = agent.behavioral_genome["rest_seek_threshold"]
+
+        if agent.needs.rest > 1.0 - rest_seek_threshold:
             visible_rest = self.world.suitable_rest_in_vision(agent, 10, sleeping_tiles)
         else:
             visible_rest = None
@@ -97,23 +96,25 @@ class Simulation:
             visible_rest=visible_rest,
         )
 
-    def _apply_busy_actions(self, agent: Agent) -> tuple[float, bool]:
+    def _temperature_at(self, agent: Agent) -> float:
         shade = self.vegetation.shade_at(agent.pos)
-        temperature = cfg.temp_to_c(
+        return cfg.temp_to_c(
             max(0.0, self.world.weather.temperature_grid[agent.get_pos_idx()] - shade)
         )
+
+    def _apply_busy_actions(self, agent: Agent) -> bool:
         tile_quality = self.world.rest_quality_at(agent.pos)
 
         if agent.needs.is_sleeping:
             agent.sleep(tile_quality)
 
-        if agent.needs.harvest_count > 0:
+        if agent.needs.is_harvesting:
             self._harvest_tick(agent)
 
         if agent.needs.is_drinking:
             agent.drink()
 
-        return temperature, agent.needs.is_busy
+        return agent.needs.is_busy
 
     def _decide_agent_step(
         self,
@@ -129,7 +130,7 @@ class Simulation:
         if not valid_moves:
             return
 
-        temperature, is_busy = self._apply_busy_actions(agent)
+        is_busy = self._apply_busy_actions(agent)
 
         if is_busy:
             agent.planned_steps.clear()
@@ -140,9 +141,13 @@ class Simulation:
         agent.update_memory(snapshot)
 
         mate_pos = self.agents.find_mate_target(agent, self.tick_count)
-
         at_river_tile = self.world.rivers.is_river_tile(agent.pos)
         local_plant = self.vegetation.fruiting_plant_at(agent.pos)
+
+        if local_plant is None:
+            agent.memory.forget(agent.pos, "food")
+
+        temperature = self._temperature_at(agent)
 
         agent.plan_steps(
             mate_pos=mate_pos,
@@ -167,7 +172,8 @@ class Simulation:
         agent: Agent,
         occupied_tiles: set[Pos],
     ) -> None:
-        temperature, is_busy = self._apply_busy_actions(agent)
+        temperature = self._temperature_at(agent)
+        is_busy = self._apply_busy_actions(agent)
 
         if is_busy:
             agent.planned_steps.clear()
@@ -205,16 +211,10 @@ class Simulation:
                 sleeping_tiles,
             )
 
-        dead = [a.id for a in all_living if a.should_die()]
+        should_be_dead = [a for a in all_living if a.should_die()]
 
-        for agent_id in dead:
-            if self._genome_pool is not None:
-                agent = self.agents.get(agent_id)
-
-                if agent:
-                    self._genome_pool.record(agent, self._sim_id, self.tick_count)
-
-            self.agents.process_agent_death(agent_id)
+        for agent in should_be_dead:
+            agent.die(self._sim_id, self.tick_count)
 
         self.agents.reproduce(self.world, self.tick_count)
 
@@ -235,7 +235,5 @@ class Simulation:
         self._process_agents(all_living, occupied_tiles, sleeping_tiles)
 
         events = event_bus.drain()
-
-        self.world.weather.tick()
 
         return events

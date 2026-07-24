@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from agents.agent import Agent
 
-from plant import ClimateData
 from config import (
     REST_FOOD_WEIGHT,
     REST_NOISE_WEIGHT,
@@ -17,7 +16,6 @@ from config import (
     RIVER_DIRECTION_BIAS,
     RIVER_GRAVITY_SCALE,
     RIVER_POOL_RISE_RATE,
-    temp_to_c,
 )
 import event_bus
 from events import Event
@@ -163,21 +161,6 @@ class World:
                 p = Pos(x, y)
                 d = dist.get(p, self.width + self.height)
                 self._river_proximity.append(1.0 / (1 + d))
-
-    def get_climate_at(self, x: int, y: int) -> ClimateData:
-        idx = y * self.width + x
-        return ClimateData(
-            temperature=temp_to_c(self.weather.get_temperature_at(x, y)),
-            precipitation=(
-                self.weather.base_precipitation()[idx]
-                if self.weather.base_precipitation()
-                else 0.5
-            ),
-            elevation=self._elevation[idx] if self._elevation else 0.5,
-            river_proximity=(
-                self._river_proximity[idx] if self._river_proximity else 0.0
-            ),
-        )
 
     # --- Rivers ---
 

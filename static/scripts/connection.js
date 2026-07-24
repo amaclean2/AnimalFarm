@@ -22,7 +22,6 @@ import {
   setElevation,
   setTemperature,
   setPrecipitation,
-  setClouds,
   isRiverTile,
 } from "./state.js";
 import {
@@ -66,7 +65,6 @@ const handleMessage = (rawData) => {
       setElevation(message.elevation);
       setTemperature(message.temperature);
       setPrecipitation(message.precipitation);
-      setClouds(message.clouds ?? []);
       applyClockState("running");
       break;
 
@@ -138,7 +136,6 @@ const handleMessage = (rawData) => {
       if (message.day_phase !== undefined) setDayPhase(message.day_phase);
       if (message.diurnal_offset !== undefined)
         setDiurnalOffset(message.diurnal_offset);
-      if (message.clouds !== undefined) setClouds(message.clouds);
       updateDayNightUI();
       const tile = getSelectedTile();
       if (tile) {
@@ -197,7 +194,6 @@ export const fetchState = async () => {
   setElevation(worldData.elevation);
   setTemperature(worldData.temperature);
   setPrecipitation(worldData.precipitation);
-  setClouds(worldData.clouds ?? []);
 
   setTickCount(clockData.tick_count);
   tickEl.textContent = clockData.tick_count || "—";

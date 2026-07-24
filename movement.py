@@ -25,7 +25,7 @@ def score_move(
 
     if food_targets:
         nearest_dist = min(abs(f.x - pos.x) + abs(f.y - pos.y) for f in food_targets)
-        hunger = 1.0 - agent.needs.hunger
+        hunger = agent.needs.hunger
         score += (FOOD_BASE_WEIGHT + FOOD_HUNGER_BONUS * hunger) / (1 + nearest_dist)
 
     if not food_targets and agent.last_food_seen:

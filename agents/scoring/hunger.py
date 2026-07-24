@@ -17,12 +17,11 @@ from agents.scoring.urgency import (
     resolve_explore_goal,
     resolve_food_target,
 )
-from config import HUNGER_BASE_DRAIN
 
 
 @register_scorer
 def score_continue_harvest(agent: "Agent", context: ScoringContext) -> ScoredCandidate | None:
-    if agent.needs.harvest_count <= 0:
+    if not agent.needs.is_harvesting:
         return None
         
     return ScoredCandidate("harvest_food", TIER_BUSY_HARVEST, agent.pos)
@@ -36,7 +35,7 @@ def score_harvest_start(agent: "Agent", context: ScoringContext) -> ScoredCandid
     if agent.active_task.name not in ("seek_food", "harvest_food"):
         return None
 
-    if agent.needs.hunger >= 1.0:
+    if agent.needs.hunger <= 0.0:
         return None
 
     return ScoredCandidate("harvest_food", TIER_HARVEST_START, agent.pos)
@@ -49,7 +48,7 @@ def score_hunger_emergency(agent: "Agent", context: ScoringContext) -> ScoredCan
     if food_target is None:
         return None
 
-    ticks_to_empty = agent.needs.hunger / HUNGER_BASE_DRAIN
+    ticks_to_empty = (1.0 - agent.needs.hunger) / agent.needs.hunger_drain_rate
     dist = abs(food_target.x - agent.x) + abs(food_target.y - agent.y)
 
     if dist + 2 < ticks_to_empty:

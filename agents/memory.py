@@ -23,6 +23,12 @@ class Memory(BaseModel):
             )
             entries.remove(furthest)
 
+    def forget(self, pos: Pos, kind: str) -> None:
+        entries = self._bucket(kind)
+
+        if pos in entries:
+            entries.remove(pos)
+
     def query(
         self,
         kind: str,

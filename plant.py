@@ -1,82 +1,23 @@
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-import config as cfg
 from config import PLANT_SHADE, PLANT_SHADE_ADJACENT
 import event_bus
 from events import Event
 from pos import Pos
 
-_TEMP_FALLOFF = 7.5  # °C outside range before suitability → 0
-_PRECIP_FALLOFF = 0.15
-_MIN_SUITABILITY = 0.1
-_RIVER_MIN_PROXIMITY = 1.0 / (1 + 6)  # river must be within 6 tiles
-
 _PLANT_SPECS: dict[str, dict] = {
-    "date_palm": {
-        "temp_lo": 23.0,
-        "temp_hi": 40.0,
-        "precip_lo": 0.0,
-        "precip_hi": 0.25,
-        "requires_river": False,
-        "max_fruit": 8,
-        "base_growth_rate": 0.005,
-        "germination_rate": 0.0005,
-    },
-    "wild_plum": {
-        "temp_lo": 0.0,
-        "temp_hi": 35.0,
-        "precip_lo": 0.0,
-        "precip_hi": 1.0,
-        "requires_river": True,
-        "max_fruit": 20,
-        "base_growth_rate": 0.03,
-        "germination_rate": 0.01,
-    },
-    "fig_tree": {
-        "temp_lo": 18.0,
-        "temp_hi": 40.0,
-        "precip_lo": 0.60,
-        "precip_hi": 1.0,
-        "requires_river": False,
-        "max_fruit": 14,
-        "base_growth_rate": 0.02,
+    "fruit_tree": {
+        "max_fruit": 12,
+        "base_growth_rate": 0.016,
         "germination_rate": 0.005,
-    },
-    "berry_bush": {
-        "temp_lo": 5.0,
-        "temp_hi": 25.0,
-        "precip_lo": 0.30,
-        "precip_hi": 0.65,
-        "requires_river": False,
-        "max_fruit": 10,
-        "base_growth_rate": 0.015,
-        "germination_rate": 0.005,
-    },
-    "bilberry": {
-        "temp_lo": -10.0,
-        "temp_hi": 10.0,
-        "precip_lo": 0.20,
-        "precip_hi": 0.60,
-        "requires_river": False,
-        "max_fruit": 6,
-        "base_growth_rate": 0.01,
-        "germination_rate": 0.0025,
+        "fruit_per_tick": 0.1,
     },
 }
-
-
-@dataclass
-class ClimateData:
-    temperature: float
-    precipitation: float
-    elevation: float
-    river_proximity: float
 
 
 class Plant(BaseModel):
@@ -87,40 +28,17 @@ class Plant(BaseModel):
     fruit_count: float
     max_fruit: int
     growth_rate: float
+    fruit_per_tick: float
 
     @property
     def pos(self) -> Pos:
         return Pos(self.x, self.y)
 
-    @property
-    def ticks_per_fruit(self) -> int:
-        return cfg.HARVEST_COST.get(self.plant_type, 10)
-
     def remove(self, n: int) -> None:
         self.fruit_count = max(0.0, self.fruit_count - n)
 
 
-def _range_score(value: float, lo: float, hi: float, falloff: float) -> float:
-    if lo <= value <= hi:
-        return 1.0
-
-    if value < lo:
-        return max(0.0, 1.0 - (lo - value) / falloff)
-
-    return max(0.0, 1.0 - (value - hi) / falloff)
-
-
-def _suitability(spec: dict, climate: ClimateData) -> float:
-    if spec["requires_river"] and climate.river_proximity < _RIVER_MIN_PROXIMITY:
-        return 0.0
-
-    temp_score = _range_score(
-        climate.temperature, spec["temp_lo"], spec["temp_hi"], _TEMP_FALLOFF
-    )
-    precip_score = _range_score(
-        climate.precipitation, spec["precip_lo"], spec["precip_hi"], _PRECIP_FALLOFF
-    )
-    return temp_score * precip_score
+_PLANT_TYPE, _PLANT_SPEC = next(iter(_PLANT_SPECS.items()))
 
 
 class VegetationManager:
@@ -144,29 +62,17 @@ class VegetationManager:
         placed: list[Plant] = []
 
         for pos in all_non_river:
-            climate = self._world.get_climate_at(pos.x, pos.y)
-            candidates: list[tuple[float, str, dict]] = []
-
-            for ptype, spec in _PLANT_SPECS.items():
-                suit = _suitability(spec, climate)
-
-                if suit < _MIN_SUITABILITY:
-                    continue
-
-                if rng.random() < spec["germination_rate"] * suit:
-                    candidates.append((suit, ptype, spec))
-
-            if not candidates:
+            if rng.random() >= _PLANT_SPEC["germination_rate"]:
                 continue
 
-            suit, ptype, spec = max(candidates, key=lambda c: c[0])
             plant = Plant(
                 x=pos.x,
                 y=pos.y,
-                plant_type=ptype,
-                fruit_count=float(spec["max_fruit"]),
-                max_fruit=spec["max_fruit"],
-                growth_rate=spec["base_growth_rate"] * suit,
+                plant_type=_PLANT_TYPE,
+                fruit_count=float(_PLANT_SPEC["max_fruit"]),
+                max_fruit=_PLANT_SPEC["max_fruit"],
+                growth_rate=_PLANT_SPEC["base_growth_rate"],
+                fruit_per_tick=_PLANT_SPEC["fruit_per_tick"],
             )
             self._plants[plant.id] = plant
             self._by_pos[pos] = plant

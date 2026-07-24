@@ -22,7 +22,6 @@ class StartConfig(BaseModel):
     agent_count: int | None = None
     num_springs: int | None = None
     max_age: int | None = None
-    hunger_base_drain: float | None = None
     reproduction_chance: float | None = None
     spontaneous_mutation_rate: float | None = None
 
@@ -33,7 +32,6 @@ def get_config() -> dict:
         "agent_count": cfg.AGENT_COUNT,
         "num_springs": cfg.NUM_SPRINGS,
         "max_age": cfg.MAX_AGE,
-        "hunger_base_drain": cfg.HUNGER_BASE_DRAIN,
         "reproduction_chance": cfg.REPRODUCTION_CHANCE,
         "spontaneous_mutation_rate": cfg.SPONTANEOUS_MUTATION_RATE,
     }
@@ -64,7 +62,6 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
         AGENT_COUNT=body.agent_count,
         NUM_SPRINGS=body.num_springs,
         MAX_AGE=body.max_age,
-        HUNGER_BASE_DRAIN=body.hunger_base_drain,
         REPRODUCTION_CHANCE=body.reproduction_chance,
         SPONTANEOUS_MUTATION_RATE=body.spontaneous_mutation_rate,
     )
@@ -116,7 +113,7 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
 
     agents_born = []
     for i, pos in enumerate(random.sample(all_cells, cfg.AGENT_COUNT)):
-        agent = deps.agents.add(pos, age=cfg.MATURITY_AGE)
+        agent = deps.agents.create(pos, age=cfg.MATURITY_AGE)
         genome = (
             mutate(elite_genomes[i], cfg.SPONTANEOUS_MUTATION_RATE)
             if use_elite
@@ -140,7 +137,6 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
             "elevation": deps.world.all_elevation(),
             "temperature": deps.world.weather.base_temperature(),
             "precipitation": deps.world.weather.base_precipitation(),
-            "clouds": deps.world.weather.clouds_to_list(),
         },
     )
     clock.start()

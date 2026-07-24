@@ -104,5 +104,4 @@ async def get_world() -> dict:
         "elevation": deps.world.all_elevation(),
         "temperature": deps.world.weather.base_temperature(),
         "precipitation": deps.world.weather.base_precipitation(),
-        "clouds": deps.world.weather.clouds_to_list(),
     }

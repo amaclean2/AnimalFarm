@@ -31,7 +31,7 @@ def compute_urgencies(agent: "Agent") -> dict[str, float]:
         else None
     )
 
-    thirst_urgency = (1.0 - agent.needs.water) ** 2
+    thirst_urgency = agent.needs.water ** 2
 
     if (
         closest_water_resource_dist is not None
@@ -39,7 +39,7 @@ def compute_urgencies(agent: "Agent") -> dict[str, float]:
     ):
         thirst_urgency = 1.0
 
-    rest_urgency = (1.0 - agent.needs.rest) ** 2
+    rest_urgency = agent.needs.rest ** 2
     max_dist_to_rest = agent.needs.get_ticks_to_empty("rest")
     reachable_rest = agent.memory.query("rest", agent.pos, max_dist=max_dist_to_rest)
 
@@ -48,7 +48,7 @@ def compute_urgencies(agent: "Agent") -> dict[str, float]:
 
     return {
         "thirst": thirst_urgency,
-        "hunger": (1.0 - agent.needs.hunger) ** 2,
+        "hunger": agent.needs.hunger ** 2,
         "rest": rest_urgency,
     }
 

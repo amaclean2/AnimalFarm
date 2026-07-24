@@ -13,7 +13,6 @@ from world import World
 
 
 def reproduce(world: World, agents: Agents, tick_count: int) -> int:
-    """Attempt reproduction for eligible pairs. Returns count of eligible pairs found."""
     all_agents = agents.all_living
     paired: set[UUID] = set()
     eligible_pairs = 0
@@ -43,7 +42,7 @@ def reproduce(world: World, agents: Agents, tick_count: int) -> int:
                 continue
 
             spawn_pos = random.choice(spawn_tile_candidates)
-            newborn = agents.add(spawn_pos, birth_tick=tick_count)
+            newborn = agents.create(spawn_pos, birth_tick=tick_count)
 
             child_genome = mutate(
                 crossover(agent.behavioral_genome, other.behavioral_genome),

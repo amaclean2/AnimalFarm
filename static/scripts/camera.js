@@ -46,6 +46,7 @@ export const resize = () => {
   const panelBottom = mobileQuery.matches
     ? Math.round(panel.getBoundingClientRect().bottom) + 8
     : 0
+    
   canvas.style.marginTop = panelBottom + 'px'
   canvas.width = window.innerWidth
   canvas.height = window.innerHeight - panelBottom

@@ -20,7 +20,7 @@ from agents.scoring.urgency import (
 
 @register_scorer
 def score_continue_drink(agent: "Agent", context: ScoringContext) -> ScoredCandidate | None:
-    if agent.needs.is_drinking or (context.at_river_tile and agent.needs.water < 1.0):
+    if agent.needs.is_drinking or (context.at_river_tile and agent.needs.water > 0.0):
         return ScoredCandidate("drink", TIER_BUSY_DRINK, agent.pos)
 
     return None

@@ -370,13 +370,6 @@
           <div class="swatch" style="background: #2dbb3a"></div>
           Plant
         </div>
-        <div class="legend-item">
-          <div
-            class="swatch"
-            style="background: rgba(255, 255, 255, 0.55)"
-          ></div>
-          Cloud
-        </div>
       </div>
     </div>
 
@@ -472,7 +465,7 @@
 
       function buildScene(data) {
         clearWorldObjects();
-        const { seed, elevation, rivers, plants, clouds } = data;
+        const { seed, elevation, rivers, plants } = data;
 
         // Terrain
         const tGeo = new THREE.BoxGeometry(TILE, 1, TILE);
@@ -550,39 +543,12 @@
           worldObjects.push(fMesh);
         }
 
-        // Clouds
-        if (clouds.length > 0) {
-          const cGeo = new THREE.SphereGeometry(1, 10, 6);
-          const cMat = new THREE.MeshBasicMaterial({
-            color: 0xffffff,
-            transparent: true,
-            opacity: 0.55,
-          });
-          const cMesh = new THREE.InstancedMesh(cGeo, cMat, clouds.length);
-          const dummy = new THREE.Object3D();
-          const CLOUD_Y = ELEV_SCALE * 2.1;
-
-          for (let i = 0; i < clouds.length; i++) {
-            const { cx, cy, radius } = clouds[i];
-            const [wx, wz] = gridToWorld(cx, cy);
-            dummy.position.set(wx, CLOUD_Y, wz);
-            dummy.scale.set(radius * 0.55, radius * 0.22, radius * 0.55);
-            dummy.updateMatrix();
-            cMesh.setMatrixAt(i, dummy.matrix);
-          }
-
-          cMesh.instanceMatrix.needsUpdate = true;
-          scene.add(cMesh);
-          worldObjects.push(cMesh);
-        }
-
         document.getElementById("s-seed").value = seed;
         const info = document.getElementById("info");
         info.innerHTML =
           `seed &nbsp;<strong>${seed}</strong><br>` +
           `${plants.length} plants<br>` +
-          `${riverTiles.length} river tiles<br>` +
-          `${clouds.length} clouds`;
+          `${riverTiles.length} river tiles`;
         info.style.display = "block";
         document.getElementById("loading").style.display = "none";
       }

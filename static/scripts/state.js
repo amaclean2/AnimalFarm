@@ -25,41 +25,11 @@ export const setPrecipitation = (data) => {
 export const getPrecipitationAt = (x, y) =>
   _precipitation[y * WORLD_WIDTH + x] ?? 0.5;
 
-const CLOUD_PRECIP_STRENGTH = 0.7;
-const CLOUD_TEMP_REDUCTION = 0.25;
 const DIURNAL_AMPLITUDE = 0.1;
 const PLANT_SHADE = 0.08;
 const PLANT_SHADE_ADJACENT = 0.03;
 
-let _clouds = [];
-export const setClouds = (data) => {
-  _clouds = data ?? [];
-};
-export const getClouds = () => _clouds;
-
-const cloudContributionAt = (cloud, x, y) => {
-  const dx = Math.min(
-    Math.abs(x - cloud.cx),
-    WORLD_WIDTH - Math.abs(x - cloud.cx),
-  );
-  const dy = Math.min(
-    Math.abs(y - cloud.cy),
-    WORLD_HEIGHT - Math.abs(y - cloud.cy),
-  );
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  if (dist >= cloud.radius) return 0;
-  const t = 1 - dist / cloud.radius;
-  return t * t * (3 - 2 * t) * cloud.strength;
-};
-
-export const getEffectivePrecipitationAt = (x, y) => {
-  const base = getPrecipitationAt(x, y);
-  const total = _clouds.reduce(
-    (sum, c) => sum + cloudContributionAt(c, x, y),
-    0,
-  );
-  return Math.min(1, base + CLOUD_PRECIP_STRENGTH * Math.min(1, total));
-};
+export const getEffectivePrecipitationAt = (x, y) => getPrecipitationAt(x, y);
 
 const shadeAt = (x, y) => {
   if ([...plants.values()].some((plant) => plant.x === x && plant.y === y))
@@ -78,20 +48,7 @@ const shadeAt = (x, y) => {
 
 export const getEffectiveTemperatureAt = (x, y) => {
   const base = getTemperatureAt(x, y);
-  const cloudTotal = _clouds.reduce(
-    (sum, cloud) => sum + cloudContributionAt(cloud, x, y),
-    0,
-  );
-  return Math.max(
-    0,
-    Math.min(
-      1,
-      base -
-        CLOUD_TEMP_REDUCTION * Math.min(1, cloudTotal) +
-        _diurnalOffset -
-        shadeAt(x, y),
-    ),
-  );
+  return Math.max(0, Math.min(1, base + _diurnalOffset - shadeAt(x, y)));
 };
 
 let _clockState = "stopped";
@@ -160,7 +117,6 @@ export const clearWorld = () => {
   _elevation = [];
   _temperature = [];
   _precipitation = [];
-  _clouds = [];
 };
 
 export const upsertAgent = (agentData) => {

@@ -30,7 +30,7 @@ _world = World(width=cfg.WORLD_WIDTH, height=cfg.WORLD_HEIGHT)
 _vegetation = VegetationManager(_world)
 _agents = Agents(_world.width, _world.height)
 _genome_pool = GenomePool(cfg.DATA_DIR / "genome_pool.db")
-_simulation = Simulation(_world, _vegetation, _agents, genome_pool=_genome_pool)
+_simulation = Simulation(_world, _vegetation, _agents)
 
 deps.world = _world
 deps.vegetation = _vegetation
@@ -63,7 +63,6 @@ async def _on_tick(tick_count: int) -> None:
             "day_number": clock.day_number,
             "day_phase": clock.day_phase,
             "diurnal_offset": round(deps.world.weather.diurnal_offset(), 4),
-            "clouds": deps.world.weather.clouds_to_list(),
         },
     )
     t2 = time.perf_counter()

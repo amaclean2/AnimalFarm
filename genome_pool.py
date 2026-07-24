@@ -22,12 +22,12 @@ CREATE TABLE IF NOT EXISTS genome_pool (
     lifespan         INTEGER NOT NULL,
     offspring        INTEGER NOT NULL DEFAULT 0,
     fitness          REAL    NOT NULL,
-    idle_threshold   REAL    NOT NULL,
-    breakaway_margin REAL    NOT NULL,
-    metabolism       REAL    NOT NULL,
-    water_drain_rate REAL    NOT NULL,
-    rest_drain_rate  REAL    NOT NULL,
-    vision           REAL    NOT NULL DEFAULT 20.0
+    idle_threshold    REAL    NOT NULL,
+    breakaway_margin  REAL    NOT NULL,
+    hunger_drain_rate REAL    NOT NULL,
+    water_drain_rate  REAL    NOT NULL,
+    rest_drain_rate   REAL    NOT NULL,
+    vision            REAL    NOT NULL DEFAULT 20.0
 );
 CREATE INDEX IF NOT EXISTS idx_fitness ON genome_pool (fitness DESC);
 """
@@ -35,14 +35,14 @@ CREATE INDEX IF NOT EXISTS idx_fitness ON genome_pool (fitness DESC);
 _INSERT = """
 INSERT INTO genome_pool
     (sim_id, agent_id, born_tick, died_tick, lifespan, offspring, fitness,
-     idle_threshold, breakaway_margin, metabolism, water_drain_rate, rest_drain_rate, vision)
+     idle_threshold, breakaway_margin, hunger_drain_rate, water_drain_rate, rest_drain_rate, vision)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
 _GENE_COLUMNS = (
     "idle_threshold",
     "breakaway_margin",
-    "metabolism",
+    "hunger_drain_rate",
     "water_drain_rate",
     "rest_drain_rate",
     "vision",
@@ -54,16 +54,7 @@ class GenomePool:
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
         self._conn.executescript(_DDL)
-        self._migrate_vision_column()
         self._conn.commit()
-
-    def _migrate_vision_column(self) -> None:
-        """Older databases predate the vision gene; add the column in place."""
-        columns = {row[1] for row in self._conn.execute("PRAGMA table_info(genome_pool)")}
-        if "vision" not in columns:
-            self._conn.execute(
-                "ALTER TABLE genome_pool ADD COLUMN vision REAL NOT NULL DEFAULT 20.0"
-            )
 
     def record(self, agent, sim_id: str, died_tick: int) -> None:
         g = agent.behavioral_genome
@@ -81,7 +72,7 @@ class GenomePool:
                 fitness,
                 g["idle_threshold"],
                 g["breakaway_margin"],
-                g["metabolism"],
+                g["hunger_drain_rate"],
                 g["water_drain_rate"],
                 g["rest_drain_rate"],
                 g["vision"],
@@ -89,8 +80,8 @@ class GenomePool:
         )
         self._conn.commit()
 
+    # used to set the genome for a new population
     def sample_elite(self, n: int) -> list[dict[str, float]]:
-        """Return n genomes sampled uniformly from the top-20% by fitness."""
         total = self.size()
         elite_count = max(1, total // 5)
         rows = self._conn.execute(

@@ -15,43 +15,47 @@
     <canvas id="game"></canvas>
 
     <div id="panel">
-      <h2>ANIMAL FARM</h2>
-      <div id="stats-grid">
-        <div class="stat">Tick: <span id="tick">—</span></div>
-        <div class="stat">
-          Day: <span id="day-number">1</span> <span id="day-icon">☀️</span>
-        </div>
-        <div class="stat">Agents: <span id="agent-count">0</span></div>
-        <div class="stat">Plants: <span id="plant-count">0</span></div>
-      </div>
-      <div class="controls">
-        <button id="btn-start">▶ Start Game</button>
-        <button
-          id="btn-world-viewer"
-          onclick="window.open('/world-viewer', '_blank')"
-        >
-          ⊕ Generate World
+      <div id="panel-header">
+        <h2>ANIMAL FARM</h2>
+        <button id="panel-toggle" aria-label="Toggle menu">
+          <span>✕</span>
         </button>
-        <button id="btn-pause" disabled>⏸ Pause</button>
-        <button id="btn-stop" disabled>⏹ Stop Clock</button>
-        <button id="btn-next-agent" disabled>⟳ Next Agent</button>
-        <button id="btn-stats">📊 Stats</button>
-        <button id="btn-fullscreen">⛶ Fullscreen</button>
       </div>
-      <div class="speed-row">
-        <span class="speed-label">Slow</span>
-        <input
-          type="range"
-          id="speed-slider"
-          min="1"
-          max="10"
-          step="1"
-          value="5"
-        />
-        <span class="speed-label">Fast</span>
-        <span id="speed-val">0.35s</span>
+      <div id="panel-body">
+        <div id="stats-grid">
+          <div class="stat">Tick: <span id="tick">—</span></div>
+          <div class="stat">
+            Day: <span id="day-number">1</span> <span id="day-icon">☀️</span>
+          </div>
+          <div class="stat">Agents: <span id="agent-count">0</span></div>
+          <div class="stat">Plants: <span id="plant-count">0</span></div>
+        </div>
+        <div class="controls">
+          <button id="btn-start">▶ Start Game</button>
+          <button
+            id="btn-world-viewer"
+            onclick="window.open('/world-viewer', '_blank')"
+          >
+            ⊕ Generate World
+          </button>
+          <button id="btn-pause" disabled>⏸ Pause</button>
+          <button id="btn-stop" disabled>⏹ Stop Clock</button>
+          <button id="btn-next-agent" disabled>⟳ Next Agent</button>
+          <button id="btn-stats">📊 Stats</button>
+          <button id="btn-fullscreen">⛶ Fullscreen</button>
+        </div>
+        <div class="speed-row">
+          <input
+            type="range"
+            id="speed-slider"
+            min="1"
+            max="10"
+            step="1"
+            value="5"
+          />
+          <span id="speed-val">0.35s</span>
+        </div>
       </div>
-      <div id="status">Connecting…</div>
     </div>
 
     <div id="config-overlay">

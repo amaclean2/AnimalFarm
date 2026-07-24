@@ -56,5 +56,4 @@ def build_preview(
         "plants": [
             {"x": p.x, "y": p.y, "plant_type": p.plant_type} for p in plants_placed
         ],
-        "clouds": preview.weather.clouds_to_list(),
     }

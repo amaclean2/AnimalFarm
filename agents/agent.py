@@ -7,34 +7,23 @@ from pydantic import BaseModel, Field
 
 from agents.memory import Memory
 from agents.needs import NeedState
+from agents.scoring import ScoringContext, choose_best
+import deps
 import event_bus
 from events import Event
 from config import (
-    HUNGER_BASE_DRAIN,
     MATING_COOLDOWN,
     MAX_AGE,
     MATURITY_AGE,
-    VISION_RANGE,
     WORLD_WIDTH,
     WORLD_HEIGHT,
 )
-from genome import default_genome
+from genome import VISION_RANGE, default_genome
 from pathfinding import astar
 from plant import Plant
 from pos import Pos
 from tasks import Task
 from world import World
-
-task_to_need_map: dict[str, str] = {
-    "seek_food": "hunger",
-    "harvest_food": "hunger",
-    "seek_water": "thirst",
-    "drink": "thirst",
-    "thirst_explore": "thirst",
-    "sleep": "rest",
-    "seek_rest": "rest",
-}
-
 
 class Agent(BaseModel):
     id: UUID = Field(default_factory=uuid4)
@@ -58,6 +47,7 @@ class Agent(BaseModel):
     planned_steps: list[Pos] = Field(default_factory=list)
     needs: NeedState = Field(default_factory=NeedState)
     memory: Memory = Field(default_factory=Memory)
+    fruits_harvested: int = 0
 
     @property
     def pos(self) -> Pos:
@@ -74,19 +64,28 @@ class Agent(BaseModel):
         self.x = pos.x
         self.y = pos.y
 
-    def die(self) -> None:
+    def die(self, sim_id: str, tick_count: int) -> None:
+        genome_pool = getattr(deps, "genome_pool", None)
+
+        if genome_pool is not None:
+            genome_pool.record(self, sim_id, tick_count)
+
         self.alive = False
         self.active_task = Task(priority=100, name="explore", goal_pos=self.pos)
         self.path = []
         self.planned_steps = []
-        self.needs.harvest_count = 0
+        self.needs.stop_harvest()
         self.needs.is_drinking = False
+
+        event_bus.publish(
+            Event("agent_died", {"agent": self.model_dump(mode="json")})
+        )
 
     def should_die(self) -> bool:
         return (
-            self.needs.hunger <= 0
-            or self.needs.water <= 0
-            or self.needs.rest <= 0
+            self.needs.hunger >= 1.0
+            or self.needs.water >= 1.0
+            or self.needs.rest >= 1.0
             or self.age >= MAX_AGE
         )
 
@@ -97,31 +96,30 @@ class Agent(BaseModel):
             or not self.path
         )
 
-    def sleep(self, tile_quality: float = 1.0) -> bool:
+    def sleep(self, tile_quality: float = 1.0) -> None:
         self.age += 1
-        sleeping_complete = self.needs.sleep(tile_quality)
+        self.needs.sleep(tile_quality)
         event_bus.publish(
             Event("agent_sleeping", {"agent": self.model_dump(mode="json")})
         )
 
-        return sleeping_complete
+    @property
+    def harvest_skill(self) -> float:
+        return math.log2(self.fruits_harvested + 1) / 4 + 1
 
-    def harvest(self) -> bool:
+    def harvest(self) -> None:
         self.age += 1
-
-        if self.needs.harvest_count == 1:
-            self.needs.harvest()
-            self.needs.eat()
-            event_bus.publish(
-                Event("agent_ate", {"agent": self.model_dump(mode="json")})
-            )
-            return True
-
-        self.needs.harvest()
-        return False
-
-    def apply_thirst_drain(self) -> None:
         self.needs.apply_thirst_drain()
+        self.needs.harvest(self.harvest_skill)
+
+        if self.needs.is_harvesting:
+            return
+
+        self.needs.eat()
+        self.fruits_harvested += 1
+        event_bus.publish(
+            Event("agent_ate", {"agent": self.model_dump(mode="json")})
+        )
 
     def drink(self) -> None:
         self.age += 1
@@ -145,207 +143,23 @@ class Agent(BaseModel):
             and (tick_count - self.last_mated_tick) >= MATING_COOLDOWN
         )
 
-    def calculate_urgencies(self):
-        water_resources = self.memory.water
-        closest_water_resource = (
-            min(
-                water_resources,
-                key=lambda e: abs(e.x - self.x) + abs(e.y - self.y),
-            )
-            if water_resources
-            else None
-        )
-        closest_water_resource_dist = (
-            abs(closest_water_resource.x - self.x)
-            + abs(closest_water_resource.y - self.y)
-            if closest_water_resource is not None
-            else None
-        )
-
-        thirst_urgency = (1.0 - self.needs.water) ** 2
-
-        if (
-            closest_water_resource_dist is not None
-            and closest_water_resource_dist + 2
-            >= self.needs.get_ticks_to_empty("water")
-        ):
-            thirst_urgency = 1.0
-
-        rest_urgency = (1.0 - self.needs.rest) ** 2
-        max_dist_to_rest = self.needs.get_ticks_to_empty("rest")
-
-        reachable_rest = self.memory.query("rest", self.pos, max_dist=max_dist_to_rest)
-
-        if self.memory.rest and reachable_rest is None:
-            rest_urgency = 1.0
-
-        return {
-            "thirst": thirst_urgency,
-            "hunger": (1.0 - self.needs.hunger) ** 2,
-            "rest": rest_urgency,
-        }
-
     def choose_action(
         self,
         mate_pos: Pos | None,
         at_river_tile: bool = False,
         local_plant: Plant | None = None,
         occupied_tiles: set[Pos] | None = None,
+        world: World | None = None,
     ) -> Task:
-        active_task_name = self.active_task.name
-        is_idle = active_task_name == "explore"
-
-        if self.needs.is_sleeping:
-            return Task(priority=0, name="sleep", goal_pos=self.pos)
-
-        if self.needs.harvest_count > 0:
-            return Task(priority=0, name="harvest_food", goal_pos=self.pos)
-
-        if self.needs.is_drinking or (at_river_tile and self.needs.water < 1.0):
-            return Task(priority=0, name="drink", goal_pos=self.pos)
-
-        if (
-            local_plant is not None
-            and active_task_name in ("seek_food", "harvest_food")
-            and self.needs.hunger < 1.0
-        ):
-            return Task(priority=0, name="harvest_food", goal_pos=self.pos)
-
-        rest_ticks_to_empty = self.needs.get_ticks_to_empty("rest")
-
-        food_target = self.memory.query("food", self.pos, exclude=occupied_tiles)
-        water_target = self.memory.query("water", self.pos)
-        if water_target and occupied_tiles and water_target in occupied_tiles:
-            water_target = self.memory.query("water", self.pos, exclude={water_target})
-        rest_target = self.memory.query("rest", self.pos, max_dist=rest_ticks_to_empty)
-
-        if (
-            active_task_name != "thirst_explore"
-            or self.active_task.goal_pos == self.pos
-        ):
-            thirst_explore_target = self.get_thirst_explore_goal()
-        else:
-            thirst_explore_target = self.active_task.goal_pos
-
-        if not water_target:
-            return Task(
-                priority=0, name="thirst_explore", goal_pos=thirst_explore_target
-            )
-
-        if food_target:
-            ticks_to_empty = self.needs.hunger / HUNGER_BASE_DRAIN
-            dist = abs(food_target.x - self.x) + abs(food_target.y - self.y)
-
-            if dist + 2 >= ticks_to_empty:
-                return Task(priority=0, name="seek_food", goal_pos=food_target)
-
-        if (
-            self.pos == rest_target
-            and not at_river_tile
-            and active_task_name == "seek_rest"
-        ):
-            return Task(priority=0, name="sleep", goal_pos=self.pos)
-
-        urgency_map = self.calculate_urgencies()
-        idle_threshold = self.behavioral_genome["idle_threshold"]
-
-        if is_idle:
-            urgent_needs = {n: s for n, s in urgency_map.items() if s >= idle_threshold}
-        else:
-            current_need = task_to_need_map.get(active_task_name, "")
-            current_urgency = urgency_map.get(current_need, 0.0)
-
-            breakaway_margin = self.behavioral_genome["breakaway_margin"]
-            urgent_needs = {
-                n: s
-                for n, s in urgency_map.items()
-                if s >= current_urgency + breakaway_margin
-            }
-
-        scored_tasks: dict[str, float] = {}
-
-        for need, urgency in urgent_needs.items():
-            match need:
-                case "thirst":
-                    if water_target:
-                        scored_tasks["seek_water"] = urgency
-                    else:
-                        scored_tasks["thirst_explore"] = urgency
-                case "hunger":
-                    if food_target:
-                        scored_tasks["seek_food"] = urgency
-                    else:
-                        scored_tasks["explore"] = urgency
-                case "rest":
-                    if rest_target:
-                        scored_tasks["seek_rest"] = urgency
-
-        if active_task_name != "explore" or self.active_task.goal_pos == self.pos:
-            explore_target = self.get_explore_goal()
-        else:
-            explore_target = self.active_task.goal_pos
-
-        if scored_tasks:
-            best = max(scored_tasks, key=scored_tasks.__getitem__)
-            task = self._make_task(
-                best,
-                food_target,
-                water_target,
-                explore_target,
-                thirst_explore_target,
-                rest_target,
-            )
-            return task
-
-        if not is_idle and active_task_name:
-            need_name = task_to_need_map.get(active_task_name, "")
-            need_urgency = urgency_map.get(need_name, 0.0)
-
-            task_targets = {
-                "seek_food": food_target,
-                "seek_water": water_target,
-                "seek_rest": rest_target,
-                "harvest_food": local_plant,
-            }
-            valid_target = (
-                active_task_name not in task_targets
-                or task_targets[active_task_name] is not None
-            )
-
-            if need_urgency >= idle_threshold and valid_target:
-                task = self._make_task(
-                    active_task_name,
-                    food_target,
-                    water_target,
-                    explore_target,
-                    thirst_explore_target,
-                    rest_target,
-                )
-                return task
-
-        if mate_pos:
-            return Task(priority=0, name="mate", goal_pos=mate_pos)
-
-        return Task(priority=0, name="explore", goal_pos=explore_target)
-
-    def _make_task(
-        self,
-        active_task: str,
-        food: Pos | None,
-        water: Pos | None,
-        explore: Pos,
-        thirst_explore: Pos,
-        rest_target: Pos | None,
-    ) -> Task:
-        goal: Pos | None = {
-            "seek_food": food,
-            "seek_water": water,
-            "explore": explore,
-            "thirst_explore": thirst_explore,
-            "seek_rest": rest_target,
-        }.get(active_task)
-
-        return Task(priority=0, name=active_task, goal_pos=goal or explore)
+        context = ScoringContext(
+            world=world,
+            mate_pos=mate_pos,
+            at_river_tile=at_river_tile,
+            local_plant=local_plant,
+            occupied_tiles=occupied_tiles,
+        )
+        best = choose_best(self, context)
+        return Task(priority=0, name=best.task_name, goal_pos=best.goal_pos)
 
     def plan_steps(
         self,
@@ -362,13 +176,14 @@ class Agent(BaseModel):
             at_river_tile=at_river_tile,
             local_plant=local_plant,
             occupied_tiles=occupied_tiles,
+            world=world,
         )
 
         if priority_task.name == "drink":
             self.needs.is_drinking = True
 
-        if priority_task.name == "harvest_food" and self.needs.harvest_count == 0:
-            self.needs.harvest_count = local_plant.ticks_per_fruit
+        if priority_task.name == "harvest_food" and not self.needs.is_harvesting:
+            self.needs.start_harvest(local_plant.fruit_per_tick)
             event_bus.publish(
                 Event(
                     "harvest_started",

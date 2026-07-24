@@ -19,6 +19,7 @@ class AgentStats(BaseModel):
     age: int
     alive: bool
     birth_tick: int
+    fruits_harvested: int
 
 
 class GeneStat(BaseModel):
@@ -80,6 +81,7 @@ async def get_stats():
                 age=a.age,
                 alive=a.alive,
                 birth_tick=a.birth_tick,
+                fruits_harvested=a.fruits_harvested,
             )
             for a in all_agents
         ]

@@ -32,6 +32,15 @@ export const btnPause = document.getElementById("btn-pause");
 export const btnStop = document.getElementById("btn-stop");
 export const btnStats = document.getElementById("btn-stats");
 
+const panelEl = document.getElementById("panel");
+const panelToggle = document.getElementById("panel-toggle");
+const panelToggleIcon = panelToggle.querySelector("span");
+
+panelToggle.addEventListener("click", () => {
+  const collapsed = panelEl.classList.toggle("collapsed");
+  panelToggleIcon.textContent = collapsed ? "☰" : "✕";
+});
+
 const formatValue = (value) =>
   value == null ? "—" : Array.isArray(value) ? `[${value}]` : String(value);
 
@@ -90,6 +99,8 @@ export const updateAgentPanel = (agent) => {
       agent.active_task ? agent.active_task.name.replace(/_/g, " ") : "—",
     ],
     ["breakaway", fmt(g.breakaway_threshold)],
+    ["hunger drain", `${agent.needs.hunger_drain_rate.toFixed(4)}/tick`],
+    ["harvested", agent.fruits_harvested],
   ];
 
   const infoHtml = rows
@@ -120,11 +131,7 @@ export const syncCounters = () => {
 };
 
 const PLANT_TYPE_LABELS = {
-  date_palm: "Date Palm",
-  wild_plum: "Wild Plum",
-  fig_tree: "Fig Tree",
-  berry_bush: "Berry Bush",
-  bilberry: "Bilberry",
+  fruit_tree: "Fruit Tree",
 };
 
 const TEMP_MIN_C = -10;
@@ -207,14 +214,13 @@ let pausedForStats = false;
 const GENE_LABELS = {
   idle_threshold: "idle",
   breakaway_margin: "breakaway",
-  metabolism: "metab",
+  hunger_drain_rate: "hunger",
   water_drain_rate: "water",
   rest_drain_rate: "rest",
   vision: "vision",
 };
 
-const fmtGene = (v) =>
-  Math.abs(v) < 0.1 ? v.toFixed(4) : v.toFixed(3);
+const fmtGene = (v) => (Math.abs(v) < 0.1 ? v.toFixed(4) : v.toFixed(3));
 
 // Diverging chart: default value is the centre line. A gene whose population
 // average has drifted above its default rises (grew); below default drops (shrank).

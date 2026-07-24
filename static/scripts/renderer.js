@@ -9,7 +9,6 @@ import {
   getTickMs,
   getDayPhase,
   getElevationAt,
-  getClouds,
   getEffectivePrecipitationAt,
   getEffectiveTemperatureAt,
 } from "./state.js";
@@ -218,21 +217,8 @@ const drawRestMemory = (agent) => {
   ctx.strokeRect(screenX, screenY, viewport.cellSize, viewport.cellSize);
 };
 
-const HARVEST_COSTS = {
-  date_palm: 6,
-  wild_plum: 2,
-  fig_tree: 4,
-  berry_bush: 3,
-  bilberry: 5,
-};
-
-const PLANT_COLORS = {
-  date_palm: "#c8a84b",
-  wild_plum: "#2ecc71",
-  fig_tree: "#27ae60",
-  berry_bush: "#8e44ad",
-  bilberry: "#7f8c8d",
-};
+const HARVEST_TICKS = 3;
+const PLANT_COLOR = "#2ecc71";
 
 const drawPlants = (visiblePlantIds) => {
   const colStart = Math.floor(camera.x / viewport.cellSize);
@@ -261,7 +247,7 @@ const drawPlants = (visiblePlantIds) => {
     const screenX = plant.x * viewport.cellSize - camera.x;
     const screenY = plant.y * viewport.cellSize - camera.y;
     const isHighlighted = visiblePlantIds.has(plant.id);
-    const baseColor = PLANT_COLORS[plant.plant_type] ?? "#27ae60";
+    const baseColor = PLANT_COLOR;
     const minR = viewport.cellSize * 0.08;
     const maxR = viewport.cellSize * (isHighlighted ? 0.2 : 0.15);
     const radius = minR + fill * (maxR - minR);
@@ -319,9 +305,19 @@ const agentRenderPosition = (agent, now) => {
   ];
 };
 
+const idSeed = (id) => {
+  let seed = 0;
+  for (let i = 0; i < id.length; i++) seed = (seed * 31 + id.charCodeAt(i)) | 0;
+  return seed;
+};
+
+const HARVEST_WOBBLE_PX = 1;
+
 const drawLivingAgents = () => {
   const now = performance.now();
   const selectedId = getSelectedAgentId();
+  const tickMs = getTickMs() || 150;
+  const tickIndex = Math.floor(now / tickMs);
 
   for (const agent of agents.values()) {
     advanceArc(agent, now);
@@ -331,8 +327,14 @@ const drawLivingAgents = () => {
 
     if (!isVisible(screenX, screenY)) continue;
 
-    const centerX = screenX + viewport.cellSize / 2;
-    const centerY = screenY + viewport.cellSize / 2;
+    let centerX = screenX + viewport.cellSize / 2;
+    let centerY = screenY + viewport.cellSize / 2;
+
+    if (agent.needs?.is_harvesting) {
+      const seed = idSeed(String(agent.id));
+      centerX += Math.sin(tickIndex * 12.9898 + seed) * HARVEST_WOBBLE_PX;
+      centerY += Math.sin(tickIndex * 78.233 + seed * 1.7) * HARVEST_WOBBLE_PX;
+    }
 
     if (agent.id === selectedId) {
       drawAgentPath(agent, renderX, renderY);
@@ -352,11 +354,7 @@ const drawLivingAgents = () => {
     ctx.stroke();
 
     if (agent.harvest_target) {
-      const harvestPlant = plants.get(agent.harvest_target);
-      const cost = harvestPlant
-        ? (HARVEST_COSTS[harvestPlant.plant_type] ?? 3)
-        : 3;
-      const progress = Math.min(1, agent.harvest_ticks / cost);
+      const progress = Math.min(1, agent.harvest_ticks / HARVEST_TICKS);
       ctx.save();
       ctx.beginPath();
       ctx.arc(
@@ -468,32 +466,6 @@ const drawClimateOverlay = () => {
   ctx.fillText(CLIMATE_OVERLAY_LABELS[_climateOverlay], 8, canvas.height - 8);
 };
 
-const drawClouds = () => {
-  const clouds = getClouds();
-  if (!clouds.length) return;
-
-  for (const cloud of clouds) {
-    const screenX = cloud.cx * viewport.cellSize - camera.x;
-    const screenY = cloud.cy * viewport.cellSize - camera.y;
-    const screenRadius = cloud.radius * viewport.cellSize;
-    const alpha = cloud.strength * 0.32;
-    const grad = ctx.createRadialGradient(
-      screenX,
-      screenY,
-      0,
-      screenX,
-      screenY,
-      screenRadius,
-    );
-    grad.addColorStop(0, `rgba(180,200,230,${alpha.toFixed(3)})`);
-    grad.addColorStop(1, "rgba(180,200,230,0)");
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(screenX, screenY, screenRadius, 0, Math.PI * 2);
-    ctx.fill();
-  }
-};
-
 let lastFrameTime = 0;
 let lastDrawTime = 0;
 
@@ -579,7 +551,6 @@ const frame = (now) => {
 
   drawPlants(visiblePlantIds);
   drawLivingAgents();
-  drawClouds();
   drawNightOverlay();
   drawSelectedTile();
   drawPrompt();
