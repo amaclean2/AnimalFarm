@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 
 from pos import Pos
 
+from agents.scoring import TIER_BUSY
+
 if TYPE_CHECKING:
     from agents.agent import Agent
     from agents.scoring import ScoringContext
@@ -31,41 +33,21 @@ def compute_urgencies(agent: "Agent") -> dict[str, float]:
         else None
     )
 
-    thirst_urgency = agent.needs.water ** 2
+    hunger_urgency = agent.needs.hunger ** 3
+    thirst_urgency = agent.needs.water ** 3
+    rest_urgency = agent.needs.rest ** 3
 
     if (
         closest_water_resource_dist is not None
         and closest_water_resource_dist + 2 >= agent.needs.get_ticks_to_empty("water")
     ):
-        thirst_urgency = 1.0
-
-    rest_urgency = agent.needs.rest ** 2
-    max_dist_to_rest = agent.needs.get_ticks_to_empty("rest")
-    reachable_rest = agent.memory.query("rest", agent.pos, max_dist=max_dist_to_rest)
-
-    if agent.memory.rest and reachable_rest is None:
-        rest_urgency = 1.0
+        thirst_urgency = TIER_BUSY
 
     return {
         "thirst": thirst_urgency,
-        "hunger": agent.needs.hunger ** 2,
+        "hunger": hunger_urgency,
         "rest": rest_urgency,
     }
-
-
-def eligibility_threshold(
-    agent: "Agent",
-    candidate_task_name: str,
-    urgencies: dict[str, float],
-) -> float:
-    idle_threshold = agent.behavioral_genome["idle_threshold"]
-
-    if candidate_task_name == agent.active_task.name or agent.active_task.name == "explore":
-        return idle_threshold
-
-    current_need = TASK_TO_NEED.get(agent.active_task.name, "")
-    breakaway_margin = agent.behavioral_genome["breakaway_margin"]
-    return urgencies.get(current_need, 0.0) + breakaway_margin
 
 
 def resolve_water_target(agent: "Agent", context: "ScoringContext") -> Pos | None:

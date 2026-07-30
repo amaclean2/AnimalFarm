@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from agents.scoring import (
     ScoredCandidate,
     ScoringContext,
-    TIER_BUSY_HARVEST,
+    TIER_BUSY,
     TIER_HARVEST_START,
     TIER_HUNGER_EMERGENCY,
     register_scorer,
@@ -13,7 +13,6 @@ from agents.scoring import (
 )
 from agents.scoring.urgency import (
     compute_urgencies,
-    eligibility_threshold,
     resolve_explore_goal,
     resolve_food_target,
 )
@@ -24,7 +23,7 @@ def score_continue_harvest(agent: "Agent", context: ScoringContext) -> ScoredCan
     if not agent.needs.is_harvesting:
         return None
         
-    return ScoredCandidate("harvest_food", TIER_BUSY_HARVEST, agent.pos)
+    return ScoredCandidate("harvest_food", TIER_BUSY, agent.pos)
 
 
 @register_scorer
@@ -67,9 +66,6 @@ def score_seek_food(agent: "Agent", context: ScoringContext) -> ScoredCandidate 
     urgencies = compute_urgencies(agent)
     urgency = urgencies["hunger"]
 
-    if urgency < eligibility_threshold(agent, "seek_food", urgencies):
-        return None
-
     return ScoredCandidate("seek_food", scale_urgency(urgency), food_target)
 
 
@@ -80,8 +76,5 @@ def score_explore_hunger(agent: "Agent", context: ScoringContext) -> ScoredCandi
 
     urgencies = compute_urgencies(agent)
     urgency = urgencies["hunger"]
-
-    if urgency < eligibility_threshold(agent, "explore", urgencies):
-        return None
 
     return ScoredCandidate("explore", scale_urgency(urgency), resolve_explore_goal(agent))

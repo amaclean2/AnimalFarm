@@ -18,7 +18,7 @@ from config import (
     WORLD_WIDTH,
     WORLD_HEIGHT,
 )
-from genome import VISION_RANGE, default_genome
+from genome import GENE_DEFAULTS, default_genome
 from pathfinding import astar
 from plant import Plant
 from pos import Pos
@@ -32,7 +32,7 @@ class Agent(BaseModel):
     age: int = 0
     alive: bool = True
     birth_tick: int = 0
-    vision_range: int = VISION_RANGE
+    vision_range: int = round(GENE_DEFAULTS["vision"])
 
     behavioral_genome: dict[str, float] = Field(default_factory=default_genome)
     offspring_count: int = 0
@@ -130,8 +130,8 @@ class Agent(BaseModel):
         for plant in snapshot.food_targets:
             self.memory.observe(plant.pos, "food", self.pos)
 
-        for pos in snapshot.visible_water:
-            self.memory.observe(pos, "water", self.pos)
+        for water in snapshot.visible_water:
+            self.memory.observe(water, "water", self.pos)
 
         if snapshot.visible_rest is not None:
             self.memory.observe(snapshot.visible_rest, "rest", self.pos)

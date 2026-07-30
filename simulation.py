@@ -82,13 +82,7 @@ class Simulation:
                 food_targets = close_plants
 
         visible_water = self.world.rivers.tiles_near(agent.pos, agent.vision_range)
-
-        rest_seek_threshold = agent.behavioral_genome["rest_seek_threshold"]
-
-        if agent.needs.rest > 1.0 - rest_seek_threshold:
-            visible_rest = self.world.suitable_rest_in_vision(agent, 10, sleeping_tiles)
-        else:
-            visible_rest = None
+        visible_rest = self.world.suitable_rest_in_vision(agent, 10, sleeping_tiles)
 
         return VisionSnapshot(
             food_targets=food_targets,

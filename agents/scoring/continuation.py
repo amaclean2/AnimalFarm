@@ -9,7 +9,6 @@ from agents.scoring.urgency import (
     resolve_explore_goal,
     resolve_food_target,
     resolve_rest_target,
-    resolve_thirst_explore_goal,
     resolve_water_target,
 )
 
@@ -19,7 +18,7 @@ def score_continue_search(agent: "Agent", context: ScoringContext) -> ScoredCand
 
     active_task_name = agent.active_task.name
 
-    if not active_task_name or active_task_name == "explore":
+    if not active_task_name or active_task_name in ("explore", "thirst_explore"):
         return None
 
     if agent.needs.is_busy:
@@ -46,9 +45,11 @@ def score_continue_search(agent: "Agent", context: ScoringContext) -> ScoredCand
     goal_by_task = {
         "seek_food": task_targets.get("seek_food"),
         "seek_water": task_targets.get("seek_water"),
-        "thirst_explore": resolve_thirst_explore_goal(agent),
         "seek_rest": task_targets.get("seek_rest"),
     }
     goal = goal_by_task.get(active_task_name) or resolve_explore_goal(agent)
 
-    return ScoredCandidate(active_task_name, scale_urgency(need_urgency), goal)
+    breakaway_margin = agent.behavioral_genome["breakaway_margin"]
+    sticky_urgency = min(1.0, need_urgency + breakaway_margin)
+
+    return ScoredCandidate(active_task_name, scale_urgency(sticky_urgency), goal)

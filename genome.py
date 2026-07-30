@@ -1,33 +1,19 @@
 import random
 
-IDLE_THRESHOLD = 0.25
-BREAKAWAY_MARGIN = 0.20
-REST_SEEK_THRESHOLD = 0.8
-
-HUNGER_BASE_DRAIN = 0.01
-WATER_BASE_DRAIN = 0.01
-REST_BASE_DRAIN = 0.003
-
-VISION_RANGE = 20
-
-GENE_RANGES: dict[str, tuple[float, float]] = {
-    "idle_threshold": (0.02, 0.40),
-    "breakaway_margin": (0.05, 0.50),
-    "rest_seek_threshold": (0.5, 0.95),
-    "hunger_drain_rate": (0.003, 0.015),
-    "water_drain_rate": (0.003, 0.015),
-    "rest_drain_rate": (0.001, 0.010),
-    "vision": (5.0, 40.0),
+GENE_DEFAULTS: dict[str, float] = {
+    "idle_threshold": 0.25,
+    "breakaway_margin": 0.20,
+    "hunger_drain_rate": 0.002,
+    "water_drain_rate": 0.01,
+    "rest_drain_rate": 0.003,
+    "vision": 20.0,
 }
 
-GENE_DEFAULTS: dict[str, float] = {
-    "idle_threshold": IDLE_THRESHOLD,
-    "breakaway_margin": BREAKAWAY_MARGIN,
-    "rest_seek_threshold": REST_SEEK_THRESHOLD,
-    "hunger_drain_rate": HUNGER_BASE_DRAIN,
-    "water_drain_rate": WATER_BASE_DRAIN,
-    "rest_drain_rate": REST_BASE_DRAIN,
-    "vision": float(VISION_RANGE),
+GENE_VARIABILITY = 0.5
+
+GENE_RANGES: dict[str, tuple[float, float]] = {
+    gene: (default * (1 - GENE_VARIABILITY), default * (1 + GENE_VARIABILITY))
+    for gene, default in GENE_DEFAULTS.items()
 }
 
 

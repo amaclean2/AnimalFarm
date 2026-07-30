@@ -32,19 +32,15 @@ ScorerFn = Callable[["Agent", ScoringContext], "ScoredCandidate | None"]
 
 SCORERS: list[ScorerFn] = []
 
-URGENCY_BAND_LOW = 0.05
 URGENCY_BAND_HIGH = 0.90
 
-TIER_BUSY_SLEEP = 1.00
-TIER_BUSY_HARVEST = 0.99
-TIER_BUSY_DRINK = 0.98
+TIER_BUSY = 1.00
 TIER_HARVEST_START = 0.97
-TIER_THIRST_FORCED = 0.96
 TIER_HUNGER_EMERGENCY = 0.95
-TIER_REST_ARRIVED = 0.91
+TIER_START_REST = 0.91
 
 TIER_FALLBACK_MATE = 0.02
-TIER_FALLBACK_EXPLORE = 0.00
+TIER_FALLBACK_EXPLORE = 0.015
 
 
 def register_scorer(scorer_function: ScorerFn) -> ScorerFn:
@@ -65,7 +61,7 @@ def choose_best(agent: "Agent", context: ScoringContext) -> ScoredCandidate:
 
 
 def scale_urgency(raw: float) -> float:
-    return URGENCY_BAND_LOW + raw * (URGENCY_BAND_HIGH - URGENCY_BAND_LOW)
+    return raw * URGENCY_BAND_HIGH
 
 
 from agents.scoring import continuation, fallback, hunger, rest, thirst  # noqa: E402,F401

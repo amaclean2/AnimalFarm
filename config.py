@@ -121,7 +121,6 @@ _saved: dict = {}
 
 
 def apply_runtime(**kwargs) -> None:
-    """Override module-level constants for the current run (call before game start)."""
     module = _sys.modules[__name__]
     for name, value in kwargs.items():
         if value is None or not hasattr(module, name):
@@ -137,7 +136,6 @@ def apply_runtime(**kwargs) -> None:
 
 
 def reset_runtime() -> None:
-    """Restore all constants to their original values (call on game stop)."""
     module = _sys.modules[__name__]
     for name, value in _saved.items():
         setattr(module, name, value)

@@ -14,7 +14,7 @@ from config import (
     TEMP_MAX_C,
     DRAIN_RATE_MULTIPLIER,
 )
-from genome import HUNGER_BASE_DRAIN, WATER_BASE_DRAIN, REST_BASE_DRAIN
+from genome import GENE_DEFAULTS
 
 
 class NeedState(BaseModel):
@@ -26,9 +26,9 @@ class NeedState(BaseModel):
     is_harvesting: bool = False
     harvest_progress: float = 0.0
     harvest_rate: float = 0.0
-    water_drain_rate: float = WATER_BASE_DRAIN
-    rest_drain_rate: float = REST_BASE_DRAIN
-    hunger_drain_rate: float = HUNGER_BASE_DRAIN
+    water_drain_rate: float = GENE_DEFAULTS["water_drain_rate"]
+    rest_drain_rate: float = GENE_DEFAULTS["rest_drain_rate"]
+    hunger_drain_rate: float = GENE_DEFAULTS["hunger_drain_rate"]
 
     @property
     def is_busy(self) -> bool:

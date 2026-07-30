@@ -5,14 +5,12 @@ from typing import TYPE_CHECKING
 from agents.scoring import (
     ScoredCandidate,
     ScoringContext,
-    TIER_BUSY_DRINK,
-    TIER_THIRST_FORCED,
+    TIER_BUSY,
     register_scorer,
     scale_urgency,
 )
 from agents.scoring.urgency import (
     compute_urgencies,
-    eligibility_threshold,
     resolve_thirst_explore_goal,
     resolve_water_target,
 )
@@ -21,18 +19,18 @@ from agents.scoring.urgency import (
 @register_scorer
 def score_continue_drink(agent: "Agent", context: ScoringContext) -> ScoredCandidate | None:
     if agent.needs.is_drinking or (context.at_river_tile and agent.needs.water > 0.0):
-        return ScoredCandidate("drink", TIER_BUSY_DRINK, agent.pos)
+        return ScoredCandidate("drink", TIER_BUSY, agent.pos)
 
     return None
 
 
 @register_scorer
 def score_thirst_explore_forced(agent: "Agent", context: ScoringContext) -> ScoredCandidate | None:
-    if resolve_water_target(agent, context) is not None:
+    if agent.memory.water:
         return None
 
     return ScoredCandidate(
-        "thirst_explore", TIER_THIRST_FORCED, resolve_thirst_explore_goal(agent)
+        "thirst_explore", TIER_BUSY, resolve_thirst_explore_goal(agent)
     )
 
 
@@ -45,8 +43,5 @@ def score_seek_water(agent: "Agent", context: ScoringContext) -> ScoredCandidate
 
     urgencies = compute_urgencies(agent)
     urgency = urgencies["thirst"]
-
-    if urgency < eligibility_threshold(agent, "seek_water", urgencies):
-        return None
 
     return ScoredCandidate("seek_water", scale_urgency(urgency), water_target)
