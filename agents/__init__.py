@@ -67,6 +67,36 @@ class Agents:
                 key = (a.x // _GRID_BUCKET, a.y // _GRID_BUCKET)
                 self._grid.setdefault(key, []).append(a)
 
+    def count_agents_near(
+        self, pos: Pos, range_val: float, exclude_id: UUID | None = None
+    ) -> int:
+        if not self._grid:
+            return sum(
+                1
+                for other in self._data.values()
+                if other.alive
+                and other.id != exclude_id
+                and abs(other.x - pos.x) + abs(other.y - pos.y) <= range_val
+            )
+
+        radius = int(range_val)
+        bucket_x0 = (pos.x - radius) // _GRID_BUCKET - 1
+        bucket_x1 = (pos.x + radius) // _GRID_BUCKET + 1
+        bucket_y0 = (pos.y - radius) // _GRID_BUCKET - 1
+        bucket_y1 = (pos.y + radius) // _GRID_BUCKET + 1
+        count = 0
+
+        for bucket_x in range(bucket_x0, bucket_x1 + 1):
+            for bucket_y in range(bucket_y0, bucket_y1 + 1):
+                for other in self._grid.get((bucket_x, bucket_y), []):
+                    if (
+                        other.id != exclude_id
+                        and abs(other.x - pos.x) + abs(other.y - pos.y) <= range_val
+                    ):
+                        count += 1
+
+        return count
+
     def in_range(self, agent: Agent, range_val: float) -> list[Agent]:
         if not self._grid:
             return [

@@ -60,7 +60,9 @@ def resolve_water_target(agent: "Agent", context: "ScoringContext") -> Pos | Non
 
 
 def resolve_food_target(agent: "Agent", context: "ScoringContext") -> Pos | None:
-    return agent.memory.query("food", agent.pos, exclude=context.occupied_tiles)
+    return agent.memory.pick_best_food(
+        agent.pos, agent.harvest_skill, exclude=context.occupied_tiles
+    )
 
 
 def resolve_rest_target(agent: "Agent") -> Pos | None:

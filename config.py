@@ -69,8 +69,8 @@ MEMORY_REST_BONUS = (
 # ── Reproduction ──────────────────────────────────────────────────────────────
 
 REPRODUCTION_CHANCE = 0.07
-REPRODUCTION_RANGE = 2  # manhattan distance within which mating can occur
-MATING_COOLDOWN = 10  # ticks an agent must wait before mating again
+REPRODUCTION_RANGE = 1
+MATING_COOLDOWN = 50
 
 # ── Decision making ───────────────────────────────────────────────────────────
 
@@ -109,6 +109,7 @@ DATA_DIR = Path(__file__).parent / "data"
 # ── Memory ────────────────────────────────────────────────────────────────────
 
 MEMORY_CAP = 10
+CROWD_CHECK_RADIUS = 3
 
 LOGS_DIR = Path(__file__).parent / "logs"
 DEBUG_HARVEST = True  # set False to disable harvest debug logging

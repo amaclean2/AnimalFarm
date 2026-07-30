@@ -18,6 +18,7 @@ class VisionSnapshot:
     food_targets: list[Plant]
     visible_water: list[Pos]
     visible_rest: Pos | None
+    food_crowd: dict[Pos, int]
 
 
 class Simulation:
@@ -84,10 +85,18 @@ class Simulation:
         visible_water = self.world.rivers.tiles_near(agent.pos, agent.vision_range)
         visible_rest = self.world.suitable_rest_in_vision(agent, 10, sleeping_tiles)
 
+        food_crowd = {
+            plant.pos: self.agents.count_agents_near(
+                plant.pos, cfg.CROWD_CHECK_RADIUS, exclude_id=agent.id
+            )
+            for plant in food_targets
+        }
+
         return VisionSnapshot(
             food_targets=food_targets,
             visible_water=visible_water,
             visible_rest=visible_rest,
+            food_crowd=food_crowd,
         )
 
     def _temperature_at(self, agent: Agent) -> float:

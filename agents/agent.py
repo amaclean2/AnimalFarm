@@ -128,7 +128,13 @@ class Agent(BaseModel):
 
     def update_memory(self, snapshot: "VisionSnapshot") -> None:
         for plant in snapshot.food_targets:
-            self.memory.observe(plant.pos, "food", self.pos)
+            self.memory.observe(
+                plant.pos,
+                "food",
+                self.pos,
+                fruit_count=plant.fruit_count,
+                crowd=snapshot.food_crowd.get(plant.pos, 0),
+            )
 
         for water in snapshot.visible_water:
             self.memory.observe(water, "water", self.pos)
