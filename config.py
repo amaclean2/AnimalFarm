@@ -42,11 +42,14 @@ MATURITY_AGE = int(MAX_AGE * _MATURITY_FRACTION)
 CRITICAL_THRESHOLD = (
     0.10  # minimum need level before an agent stops committing harvest ticks
 )
-HUNGER_INFANT_MULTIPLIER = 2.0  # infant drains this × base (scales to 1× at maturity)
-HUNGER_RIVER_MULTIPLIER = 2.0  # river tile multiplies hunger drain
-EAT_RESTORE = 0.20  # hunger reduced per meal (~5 meals to go starving → satisfied)
+INFANT_DRAIN_PENALTY = 3.0
+HUNGER_RIVER_MULTIPLIER = 2.0
 
-DRINK_RESTORE = 0.20  # thirst reduced per drink (~5 drinks to go parched → satisfied)
+DRINK_RESTORE = 0.20
+
+# ── Carrying ──────────────────────────────────────────────────────────────────
+
+INVENTORY_CAPACITY = 5
 
 REST_COLD_MULTIPLIER = (
     2.0  # drain multiplier at minimum temperature (scales to 1× at max temp)
@@ -54,7 +57,7 @@ REST_COLD_MULTIPLIER = (
 REST_RESTORE_MIN = 0.005  # tiredness reduced per tick on worst rest tile
 REST_RESTORE_MAX = 0.025  # tiredness reduced per tick on best rest tile
 
-DRAIN_RATE_MULTIPLIER = 0.9  # speeds up or slows down all the drain rates together
+DRAIN_RATE_MULTIPLIER = 1.0  # speeds up or slows down all the drain rates together
 
 # ── Rest spot quality ─────────────────────────────────────────────────────────
 
@@ -76,13 +79,6 @@ MATING_COOLDOWN = 50
 
 DECISION_STRIDE = 2  # ticks between full agent decisions
 PLAN_HORIZON = 2  # steps produced per decision
-
-# ── Movement ─────────────────────────────────────────────────────────────────
-
-FOOD_BASE_WEIGHT = 4.0
-FOOD_HUNGER_BONUS = 4.0
-FOOD_MEMORY_WEIGHT = 1.5
-WANDER_WEIGHT = 0.15
 
 # ── Ecology ───────────────────────────────────────────────────────────────────
 
@@ -108,7 +104,6 @@ DATA_DIR = Path(__file__).parent / "data"
 
 # ── Memory ────────────────────────────────────────────────────────────────────
 
-MEMORY_CAP = 10
 CROWD_CHECK_RADIUS = 3
 
 LOGS_DIR = Path(__file__).parent / "logs"

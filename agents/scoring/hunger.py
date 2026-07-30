@@ -34,7 +34,7 @@ def score_harvest_start(agent: "Agent", context: ScoringContext) -> ScoredCandid
     if agent.active_task.name not in ("seek_food", "harvest_food"):
         return None
 
-    if agent.needs.hunger <= 0.0:
+    if agent.inventory.is_full:
         return None
 
     return ScoredCandidate("harvest_food", TIER_HARVEST_START, agent.pos)
@@ -42,6 +42,9 @@ def score_harvest_start(agent: "Agent", context: ScoringContext) -> ScoredCandid
 
 @register_scorer
 def score_hunger_emergency(agent: "Agent", context: ScoringContext) -> ScoredCandidate | None:
+    if agent.inventory.has("fruit"):
+        return None
+
     food_target = resolve_food_target(agent, context)
 
     if food_target is None:
@@ -64,7 +67,7 @@ def score_seek_food(agent: "Agent", context: ScoringContext) -> ScoredCandidate 
         return None
 
     urgencies = compute_urgencies(agent)
-    urgency = urgencies["hunger"]
+    urgency = urgencies["food"]
 
     return ScoredCandidate("seek_food", scale_urgency(urgency), food_target)
 
@@ -75,6 +78,25 @@ def score_explore_hunger(agent: "Agent", context: ScoringContext) -> ScoredCandi
         return None
 
     urgencies = compute_urgencies(agent)
-    urgency = urgencies["hunger"]
+    urgency = urgencies["food"]
 
     return ScoredCandidate("explore", scale_urgency(urgency), resolve_explore_goal(agent))
+
+
+@register_scorer
+def score_continue_eat(agent: "Agent", context: ScoringContext) -> ScoredCandidate | None:
+    if not agent.needs.is_eating:
+        return None
+
+    return ScoredCandidate("eat", TIER_BUSY, agent.pos)
+
+
+@register_scorer
+def score_eat(agent: "Agent", context: ScoringContext) -> ScoredCandidate | None:
+    if not agent.inventory.has("fruit"):
+        return None
+
+    urgencies = compute_urgencies(agent)
+    urgency = urgencies["hunger"]
+
+    return ScoredCandidate("eat", scale_urgency(urgency), agent.pos)

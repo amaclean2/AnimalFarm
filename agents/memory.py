@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from config import MEMORY_CAP
+from genome import GENE_DEFAULTS
 from pos import Pos
 
 
@@ -10,6 +10,7 @@ class FoodInfo(BaseModel):
 
 
 class Memory(BaseModel):
+    cap: int = int(GENE_DEFAULTS["memory_cap"])
     food: list[Pos] = []
     water: list[Pos] = []
     rest: list[Pos] = []
@@ -28,7 +29,7 @@ class Memory(BaseModel):
         if pos not in entries:
             entries.append(pos)
 
-            if len(entries) > MEMORY_CAP:
+            if len(entries) > self.cap:
                 furthest = max(
                     entries,
                     key=lambda p: abs(p.x - agent_pos.x) + abs(p.y - agent_pos.y),

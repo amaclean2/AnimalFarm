@@ -12,8 +12,9 @@ if TYPE_CHECKING:
 
 
 TASK_TO_NEED: dict[str, str] = {
-    "seek_food": "hunger",
-    "harvest_food": "hunger",
+    "seek_food": "food",
+    "harvest_food": "food",
+    "eat": "hunger",
     "seek_water": "thirst",
     "drink": "thirst",
     "thirst_explore": "thirst",
@@ -34,6 +35,7 @@ def compute_urgencies(agent: "Agent") -> dict[str, float]:
     )
 
     hunger_urgency = agent.needs.hunger ** 3
+    food_urgency = (1.0 - agent.inventory.fullness) ** 3
     thirst_urgency = agent.needs.water ** 3
     rest_urgency = agent.needs.rest ** 3
 
@@ -46,6 +48,7 @@ def compute_urgencies(agent: "Agent") -> dict[str, float]:
     return {
         "thirst": thirst_urgency,
         "hunger": hunger_urgency,
+        "food": food_urgency,
         "rest": rest_urgency,
     }
 

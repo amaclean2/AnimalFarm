@@ -16,7 +16,8 @@ _PLANT_SPECS: dict[str, dict] = {
         "base_growth_rate": 0.016,
         "germination_rate": 0.005,
         "fruit_per_tick": 0.1,
-    },
+        "eat_restore": 0.20
+    }
 }
 
 
@@ -29,6 +30,7 @@ class Plant(BaseModel):
     max_fruit: int
     growth_rate: float
     fruit_per_tick: float
+    eat_restore: float
 
     @property
     def pos(self) -> Pos:
@@ -73,6 +75,7 @@ class VegetationManager:
                 max_fruit=_PLANT_SPEC["max_fruit"],
                 growth_rate=_PLANT_SPEC["base_growth_rate"],
                 fruit_per_tick=_PLANT_SPEC["fruit_per_tick"],
+                eat_restore=_PLANT_SPEC["eat_restore"],
             )
             self._plants[plant.id] = plant
             self._by_pos[pos] = plant

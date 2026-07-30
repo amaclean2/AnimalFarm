@@ -114,6 +114,9 @@ class Simulation:
         if agent.needs.is_harvesting:
             self._harvest_tick(agent)
 
+        if agent.needs.is_eating:
+            agent.eat()
+
         if agent.needs.is_drinking:
             agent.drink()
 

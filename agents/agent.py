@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
+from agents.inventory import Inventory
 from agents.memory import Memory
 from agents.needs import NeedState
 from agents.scoring import ScoringContext, choose_best
@@ -47,6 +48,7 @@ class Agent(BaseModel):
     planned_steps: list[Pos] = Field(default_factory=list)
     needs: NeedState = Field(default_factory=NeedState)
     memory: Memory = Field(default_factory=Memory)
+    inventory: Inventory = Field(default_factory=Inventory)
     fruits_harvested: int = 0
 
     @property
@@ -76,6 +78,7 @@ class Agent(BaseModel):
         self.planned_steps = []
         self.needs.stop_harvest()
         self.needs.is_drinking = False
+        self.needs.is_eating = False
 
         event_bus.publish(
             Event("agent_died", {"agent": self.model_dump(mode="json")})
@@ -109,14 +112,24 @@ class Agent(BaseModel):
 
     def harvest(self) -> None:
         self.age += 1
-        self.needs.apply_thirst_drain()
+        self.needs.apply_thirst_drain(self.age)
         self.needs.harvest(self.harvest_skill)
 
         if self.needs.is_harvesting:
             return
 
-        self.needs.eat()
+        self.inventory.add("fruit", 1.0)
         self.fruits_harvested += 1
+
+    def eat(self) -> None:
+        self.age += 1
+        taken = self.inventory.take("fruit", 1.0)
+
+        if taken > 0.0:
+            self.needs.eat()
+        else:
+            self.needs.is_eating = False
+
         event_bus.publish(
             Event("agent_ate", {"agent": self.model_dump(mode="json")})
         )
@@ -188,8 +201,11 @@ class Agent(BaseModel):
         if priority_task.name == "drink":
             self.needs.is_drinking = True
 
+        if priority_task.name == "eat":
+            self.needs.is_eating = True
+
         if priority_task.name == "harvest_food" and not self.needs.is_harvesting:
-            self.needs.start_harvest(local_plant.fruit_per_tick)
+            self.needs.start_harvest(local_plant.fruit_per_tick, local_plant.eat_restore)
             event_bus.publish(
                 Event(
                     "harvest_started",
@@ -280,9 +296,9 @@ class Agent(BaseModel):
         occupied.add(self.pos)
         self.age += 1
 
-        self.needs.apply_rest_drain(temperature)
+        self.needs.apply_rest_drain(self.age, temperature)
         self.needs.apply_hunger_drain(self.age, is_river_tile(self.pos))
-        self.needs.apply_thirst_drain()
+        self.needs.apply_thirst_drain(self.age)
 
         event_bus.publish(Event("agent_moved", {"agent": self.model_dump(mode="json")}))
 

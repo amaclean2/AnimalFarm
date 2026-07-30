@@ -7,6 +7,7 @@ GENE_DEFAULTS: dict[str, float] = {
     "water_drain_rate": 0.01,
     "rest_drain_rate": 0.003,
     "vision": 20.0,
+    "memory_cap": 10.0,
 }
 
 GENE_VARIABILITY = 0.5
@@ -57,3 +58,4 @@ def apply_to_agent(agent, genome: dict[str, float]) -> None:
     agent.needs.water_drain_rate = genome["water_drain_rate"]
     agent.needs.rest_drain_rate = genome["rest_drain_rate"]
     agent.vision_range = round(genome["vision"])
+    agent.memory.cap = round(genome["memory_cap"])
