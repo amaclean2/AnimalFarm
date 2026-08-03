@@ -113,7 +113,9 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
 
     agents_born = []
     for i, pos in enumerate(random.sample(all_cells, cfg.AGENT_COUNT)):
-        agent = deps.agents.create(pos, age=cfg.MATURITY_AGE)
+        agent = deps.agents.create(
+            pos, birth_tick=-cfg.MATURITY_AGE, age=cfg.MATURITY_AGE
+        )
         genome = (
             mutate(elite_genomes[i], cfg.SPONTANEOUS_MUTATION_RATE)
             if use_elite

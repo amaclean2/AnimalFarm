@@ -32,6 +32,7 @@ class GeneStat(BaseModel):
 
 
 class WorldStats(BaseModel):
+    tick_count: int
     agent_count: int
     plant_count: int
     gene_stats: list[GeneStat]
@@ -87,6 +88,7 @@ async def get_stats():
         ]
 
         return WorldStats(
+            tick_count=deps.simulation.tick_count,
             agent_count=len(agents),
             plant_count=len(deps.vegetation.all_plants),
             gene_stats=_gene_stats(deps.agents.all_living),

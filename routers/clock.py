@@ -1,6 +1,9 @@
+import traceback
+
 import config as cfg
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 import deps
@@ -27,8 +30,10 @@ async def stop_clock() -> None:
 
 @router.post("/pause", status_code=204)
 async def pause_clock() -> None:
-    if clock.state == "running":
+    try:
         clock.pause()
+    except Exception:
+        return JSONResponse(status_code=500, content={"error": traceback.format_exc()})
 
 
 @router.post("/resume", status_code=204)

@@ -5,34 +5,29 @@ import {
   setSelectedAgentId,
   getSelectedTile,
   setSelectedTile,
-  isRiverTile
-} from './state.js'
+  isRiverTile,
+} from "./state.js"
 import {
   camera,
   viewport,
   resize,
   clampCamera,
-  centerOnWorld
-} from './camera.js'
+  centerOnWorld,
+} from "./camera.js"
+import { btnStart } from "./ui.js"
+import "./Clock.js"
+import { updateAgentPanel } from "./AgentPanel.js"
+import { updateTilePanel, clearTilePanel } from "./TilePanel.js"
+import "./StatsPanel/index.js"
 import {
-  updateAgentPanel,
-  updateTilePanel,
-  clearTilePanel,
-  applyClockState,
-  openStats,
   openConfigDialog,
   closeConfigDialog,
   readConfigValues,
-  btnStart,
-  btnPause,
-  btnStop,
-  btnStats
-} from './ui.js'
-import { connect, post } from './connection.js'
-import { startRenderLoop } from './renderer.js'
-import { getClockState, setTickMs } from './state.js'
+} from "./ConfigDialog.js"
+import { connect, post } from "./connection.js"
+import { startRenderLoop } from "./renderer.js"
 
-const canvas = document.getElementById('game')
+const canvas = document.getElementById("game")
 
 const findAgentAtWorldPos = (worldX, worldY) =>
   [...agents.values()].find((agent) => agent.x === worldX && agent.y === worldY)
@@ -43,7 +38,7 @@ const findPlantAtWorldPos = (worldX, worldY) =>
 const handleCanvasSelect = (screenX, screenY) => {
   const rect = canvas.getBoundingClientRect()
   const worldX = Math.floor(
-    (screenX - rect.left + camera.x) / viewport.cellSize
+    (screenX - rect.left + camera.x) / viewport.cellSize,
   )
   const worldY = Math.floor((screenY - rect.top + camera.y) / viewport.cellSize)
   const hitAgent = findAgentAtWorldPos(worldX, worldY)
@@ -70,13 +65,13 @@ const handleCanvasSelect = (screenX, screenY) => {
         worldX,
         worldY,
         findPlantAtWorldPos(worldX, worldY),
-        isRiverTile(worldX, worldY)
+        isRiverTile(worldX, worldY),
       )
     }
   }
 }
 
-canvas.addEventListener('click', (event) => {
+canvas.addEventListener("click", (event) => {
   handleCanvasSelect(event.clientX, event.clientY)
 })
 
@@ -85,18 +80,18 @@ let touchLastY = 0
 let touchMoved = false
 
 canvas.addEventListener(
-  'touchstart',
+  "touchstart",
   (event) => {
     if (event.touches.length !== 1) return
     touchLastX = event.touches[0].clientX
     touchLastY = event.touches[0].clientY
     touchMoved = false
   },
-  { passive: true }
+  { passive: true },
 )
 
 canvas.addEventListener(
-  'touchmove',
+  "touchmove",
   (event) => {
     if (event.touches.length !== 1) return
     camera.x -= event.touches[0].clientX - touchLastX
@@ -106,47 +101,23 @@ canvas.addEventListener(
     touchLastY = event.touches[0].clientY
     touchMoved = true
   },
-  { passive: true }
+  { passive: true },
 )
 
-canvas.addEventListener('touchend', (event) => {
+canvas.addEventListener("touchend", (event) => {
   if (touchMoved || event.changedTouches.length !== 1) return
   const touch = event.changedTouches[0]
   handleCanvasSelect(touch.clientX, touch.clientY)
 })
 
-btnStart.addEventListener('click', openConfigDialog)
+btnStart.addEventListener("click", openConfigDialog)
 
-document.getElementById('config-start-btn').addEventListener('click', () => {
+document.getElementById("config-start-btn").addEventListener("click", () => {
   closeConfigDialog()
-  post('/start', readConfigValues())
+  post("/start", readConfigValues())
 })
 
-const togglePause = () => {
-  const clockState = getClockState()
-  if (clockState === 'running') {
-    post('/clock/pause')
-    applyClockState('paused')
-  } else if (clockState === 'paused') {
-    post('/clock/resume')
-    applyClockState('running')
-  }
-}
-
-btnPause.addEventListener('click', togglePause)
-
-btnStop.addEventListener('click', () => {
-  post('/clock/stop')
-  applyClockState('stopped')
-})
-
-btnStats.addEventListener('click', openStats)
-
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'p' || e.key === 'P') togglePause()
-})
-
-const btnNextAgent = document.getElementById('btn-next-agent')
+const btnNextAgent = document.getElementById("btn-next-agent")
 let agentCursor = 0
 
 const jumpToNextAgent = () => {
@@ -160,35 +131,15 @@ const jumpToNextAgent = () => {
   centerOnWorld(agent.x, agent.y)
 }
 
-btnNextAgent.addEventListener('click', jumpToNextAgent)
+btnNextAgent.addEventListener("click", jumpToNextAgent)
 
-const speedSlider = document.getElementById('speed-slider')
-const speedVal = document.getElementById('speed-val')
-
-const sliderToInterval = (s) =>
-  parseFloat((2.0 * Math.pow(0.025, (s - 1) / 9)).toFixed(3))
-
-const formatInterval = (interval) =>
-  interval < 1 ? `${Math.round(interval * 1000)}ms` : `${interval.toFixed(1)}s`
-
-speedVal.textContent = formatInterval(
-  sliderToInterval(parseInt(speedSlider.value, 10))
-)
-
-speedSlider.addEventListener('input', () => {
-  const interval = sliderToInterval(parseInt(speedSlider.value, 10))
-  speedVal.textContent = formatInterval(interval)
-  setTickMs(interval * 1000)
-  post('/clock/speed', { interval })
-})
-
-document.getElementById('hint').textContent = window.matchMedia(
-  '(pointer: coarse)'
+document.getElementById("hint").textContent = window.matchMedia(
+  "(pointer: coarse)",
 ).matches
-  ? 'Drag to scroll · Pinch to zoom'
-  : 'WASD / ↑↓←→ to scroll · C: climate overlay'
+  ? "Drag to scroll · Pinch to zoom"
+  : "WASD / ↑↓←→ to scroll · C: climate overlay"
 
-window.addEventListener('resize', resize)
+window.addEventListener("resize", resize)
 requestAnimationFrame(resize)
 
 connect()

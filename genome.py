@@ -3,7 +3,7 @@ import random
 GENE_DEFAULTS: dict[str, float] = {
     "idle_threshold": 0.25,
     "breakaway_margin": 0.20,
-    "hunger_drain_rate": 0.002,
+    "hunger_drain_rate": 0.005,
     "water_drain_rate": 0.01,
     "rest_drain_rate": 0.003,
     "vision": 20.0,

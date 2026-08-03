@@ -379,9 +379,135 @@ button:disabled {
   border-bottom: 1px solid #1e1e1e;
 }
 
+.stats-table tr[data-alive="true"] {
+  cursor: pointer;
+}
+
+.stats-table tr[data-alive="true"]:hover td {
+  background: #222;
+}
+
 .stats-empty {
   color: #444;
   font-size: 12px;
+}
+
+.population-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.population-section-header h4 {
+  margin-bottom: 0;
+}
+
+.chart-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.chart-toggle-btn {
+  background: none;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #777;
+  font-size: 10px;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.chart-toggle-btn.active {
+  color: #eee;
+  border-color: #555;
+  background: #262626;
+}
+
+.chart-view {
+  display: none;
+}
+
+.chart-view.active-view {
+  display: block;
+}
+
+.population-chart-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.population-chart-wrap {
+  position: relative;
+  flex: 1;
+}
+
+.population-chart {
+  width: 100%;
+  height: 120px;
+  display: block;
+}
+
+.population-baseline {
+  stroke: #3a3a3a;
+  stroke-width: 1;
+}
+
+.population-crosshair {
+  stroke: #555;
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+  opacity: 0;
+}
+
+.population-hover-dot {
+  stroke: #1a1a1a;
+  stroke-width: 1.5;
+  opacity: 0;
+}
+
+.population-chart-wrap.hovering .population-crosshair,
+.population-chart-wrap.hovering .population-hover-dot {
+  opacity: 1;
+}
+
+.population-tooltip {
+  position: absolute;
+  transform: translate(-50%, -130%);
+  background: #222;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 3px 7px;
+  font-size: 11px;
+  color: #eee;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.population-chart-wrap.hovering .population-tooltip {
+  opacity: 1;
+}
+
+.population-axis-label {
+  font-size: 10px;
+  color: #555;
+  display: flex;
+  align-items: flex-start;
+}
+
+.population-axis-min {
+  align-items: flex-end;
+}
+
+.population-tick-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #555;
+  margin-top: 4px;
 }
 
 .gene-plot-row {
