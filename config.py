@@ -5,8 +5,6 @@ All values that affect gameplay, balance, or world generation live here.
 
 from pathlib import Path
 
-# ── World generation ──────────────────────────────────────────────────────────
-
 WORLD_WIDTH = 100
 WORLD_HEIGHT = 100
 
@@ -16,32 +14,24 @@ CLIMATE_COARSE_SCALE = 50.0
 CLIMATE_MEDIUM_SCALE = 20.0
 TEMP_ELEVATION_COUPLING = 0.4
 
-TEMP_MIN_C = -10.0  # temperature at normalized value 0
-TEMP_MAX_C = 40.0  # temperature at normalized value 1
-DIURNAL_AMPLITUDE = 0.1  # normalized temperature swing peak-to-trough (= 5 °C)
-PLANT_SHADE = 0.08  # normalized temp reduction on the plant tile (= 4 °C)
-PLANT_SHADE_ADJACENT = (
-    0.03  # normalized temp reduction on immediately adjacent tiles (= 1.5 °C)
-)
+TEMP_MIN_C = -10.0
+TEMP_MAX_C = 40.0
+DIURNAL_AMPLITUDE = 0.15
+PLANT_SHADE = 0.08
+PLANT_SHADE_ADJACENT = 0.03
 
-ELEV_MAX_M = 2000  # elevation at normalized value 1 (metres)
+ELEV_MAX_M = 2000
 
 
 def temp_to_c(t: float) -> float:
     return TEMP_MIN_C + t * (TEMP_MAX_C - TEMP_MIN_C)
 
 
-# ── Agent lifecycle ───────────────────────────────────────────────────────────
-
 MAX_AGE = 800
-_MATURITY_FRACTION = 0.15  # adults at 15% of lifespan
-MATURITY_AGE = int(MAX_AGE * _MATURITY_FRACTION)
+MATURITY_FRACTION = 0.15
+MATURITY_AGE = int(MAX_AGE * MATURITY_FRACTION)
 
-# ── Needs & metabolism ────────────────────────────────────────────────────────
 
-CRITICAL_THRESHOLD = (
-    0.10  # minimum need level before an agent stops committing harvest ticks
-)
 INFANT_DRAIN_PENALTY = 3.0
 HUNGER_RIVER_MULTIPLIER = 2.0
 
@@ -49,15 +39,13 @@ DRINK_RESTORE = 0.20
 
 IDEAL_CORE_TEMP_C = 15.0
 CORE_TEMP_DEATH_MARGIN_C = 5.0
-CORE_TEMP_DRIFT_RATE = 0.01
-
-# ── Carrying ──────────────────────────────────────────────────────────────────
+CORE_TEMP_DRIFT_RATE = 0.001
 
 INVENTORY_CAPACITY = 5
 
 HEAT_THIRST_MULTIPLIER = 2.0
-REST_RESTORE_MIN = 0.005  # tiredness reduced per tick on worst rest tile
-REST_RESTORE_MAX = 0.025  # tiredness reduced per tick on best rest tile
+TILE_REST_RESTORE_MIN = 0.005
+TILE_REST_RESTORE_MAX = 0.025
 
 DRAIN_RATE_MULTIPLIER = 1.0  # speeds up or slows down all the drain rates together
 
@@ -130,7 +118,7 @@ def apply_runtime(**kwargs) -> None:
     if "MAX_AGE" in kwargs:
         if "MATURITY_AGE" not in _saved:
             _saved["MATURITY_AGE"] = module.MATURITY_AGE
-        module.MATURITY_AGE = int(module.MAX_AGE * _MATURITY_FRACTION)
+        module.MATURITY_AGE = int(module.MAX_AGE * MATURITY_FRACTION)
 
 
 def reset_runtime() -> None:

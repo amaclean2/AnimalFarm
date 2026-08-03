@@ -16,7 +16,7 @@ class Inventory(BaseModel):
 
     @property
     def fullness(self) -> float:
-        return min(1.0, self.total / INVENTORY_CAPACITY)
+        return self.total / INVENTORY_CAPACITY
 
     def has(self, kind: str) -> bool:
         return self.items.get(kind, 0.0) > 0.0

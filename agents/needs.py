@@ -5,8 +5,8 @@ from config import (
     HUNGER_RIVER_MULTIPLIER,
     HILL_ENERGY_MULTIPLIER,
     DRINK_RESTORE,
-    REST_RESTORE_MIN,
-    REST_RESTORE_MAX,
+    TILE_REST_RESTORE_MIN,
+    TILE_REST_RESTORE_MAX,
     DRAIN_RATE_MULTIPLIER,
     IDEAL_CORE_TEMP_C,
     CORE_TEMP_DEATH_MARGIN_C,
@@ -58,7 +58,7 @@ class NeedState(BaseModel):
         off_from_core_temp = abs(self.core_temperature - IDEAL_CORE_TEMP_C)
         off_ratio = off_from_core_temp / CORE_TEMP_DEATH_MARGIN_C
 
-        heat_mult = off_ratio**2
+        heat_mult = off_ratio**3
 
         self.water = min(1.0, self.water + base_drain * heat_mult)
 
@@ -86,8 +86,8 @@ class NeedState(BaseModel):
         self.hunger = min(1.0, self.hunger + base * river_mult)
 
     def sleep(self, tile_quality: float = 1.0) -> None:
-        restore = REST_RESTORE_MIN + tile_quality * (
-            REST_RESTORE_MAX - REST_RESTORE_MIN
+        restore = TILE_REST_RESTORE_MIN + tile_quality * (
+            TILE_REST_RESTORE_MAX - TILE_REST_RESTORE_MIN
         )
         self.rest = max(0.0, self.rest - restore)
 

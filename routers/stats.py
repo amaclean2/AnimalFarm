@@ -15,7 +15,7 @@ class AgentStats(BaseModel):
     id: UUID
     x: int
     y: int
-    hunger: float
+    cause_of_death: str
     age: int
     alive: bool
     birth_tick: int
@@ -78,7 +78,7 @@ async def get_stats():
                 id=a.id,
                 x=a.x,
                 y=a.y,
-                hunger=a.needs.hunger,
+                cause_of_death=a.cause_of_death or "-",
                 age=a.age,
                 alive=a.alive,
                 birth_tick=a.birth_tick,

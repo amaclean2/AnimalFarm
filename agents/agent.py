@@ -53,6 +53,7 @@ class Agent(BaseModel):
     memory: Memory = Field(default_factory=Memory)
     inventory: Inventory = Field(default_factory=Inventory)
     fruits_harvested: int = 0
+    cause_of_death: str | None = None
 
     @property
     def pos(self) -> Pos:
@@ -70,6 +71,8 @@ class Agent(BaseModel):
         self.y = pos.y
 
     def die(self, sim_id: str, tick_count: int) -> None:
+        self.cause_of_death = self.death_cause()
+
         genome_pool = getattr(deps, "genome_pool", None)
 
         if genome_pool is not None:
@@ -85,15 +88,23 @@ class Agent(BaseModel):
 
         event_bus.publish(Event("agent_died", {"agent": self.model_dump(mode="json")}))
 
+    def death_cause(self) -> str | None:
+        if self.needs.hunger >= 1.0:
+            return "hunger"
+        if self.needs.water >= 1.0:
+            return "thirst"
+        if self.needs.rest >= 1.0:
+            return "rest"
+        if self.age >= MAX_AGE:
+            return "age"
+        if self.needs.core_temperature - IDEAL_CORE_TEMP_C >= CORE_TEMP_DEATH_MARGIN_C:
+            return "too hot"
+        if IDEAL_CORE_TEMP_C - self.needs.core_temperature >= CORE_TEMP_DEATH_MARGIN_C:
+            return "too cold"
+        return None
+
     def should_die(self) -> bool:
-        return (
-            self.needs.hunger >= 1.0
-            or self.needs.water >= 1.0
-            or self.needs.rest >= 1.0
-            or self.age >= MAX_AGE
-            or abs(self.needs.core_temperature - IDEAL_CORE_TEMP_C)
-            >= CORE_TEMP_DEATH_MARGIN_C
-        )
+        return self.death_cause() is not None
 
     def needs_replan(self, priority_task: Task) -> bool:
         return (
