@@ -18,6 +18,8 @@ from config import (
     MATURITY_AGE,
     WORLD_WIDTH,
     WORLD_HEIGHT,
+    IDEAL_CORE_TEMP_C,
+    CORE_TEMP_DEATH_MARGIN_C,
 )
 from genome import GENE_DEFAULTS, default_genome
 from pathfinding import astar
@@ -25,6 +27,7 @@ from plant import Plant
 from pos import Pos
 from tasks import Task
 from world import World
+
 
 class Agent(BaseModel):
     id: UUID = Field(default_factory=uuid4)
@@ -80,9 +83,7 @@ class Agent(BaseModel):
         self.needs.is_drinking = False
         self.needs.is_eating = False
 
-        event_bus.publish(
-            Event("agent_died", {"agent": self.model_dump(mode="json")})
-        )
+        event_bus.publish(Event("agent_died", {"agent": self.model_dump(mode="json")}))
 
     def should_die(self) -> bool:
         return (
@@ -90,6 +91,8 @@ class Agent(BaseModel):
             or self.needs.water >= 1.0
             or self.needs.rest >= 1.0
             or self.age >= MAX_AGE
+            or abs(self.needs.core_temperature - IDEAL_CORE_TEMP_C)
+            >= CORE_TEMP_DEATH_MARGIN_C
         )
 
     def needs_replan(self, priority_task: Task) -> bool:
@@ -130,9 +133,7 @@ class Agent(BaseModel):
         else:
             self.needs.is_eating = False
 
-        event_bus.publish(
-            Event("agent_ate", {"agent": self.model_dump(mode="json")})
-        )
+        event_bus.publish(Event("agent_ate", {"agent": self.model_dump(mode="json")}))
 
     def drink(self) -> None:
         self.age += 1
@@ -205,7 +206,9 @@ class Agent(BaseModel):
             self.needs.is_eating = True
 
         if priority_task.name == "harvest_food" and not self.needs.is_harvesting:
-            self.needs.start_harvest(local_plant.fruit_per_tick, local_plant.eat_restore)
+            self.needs.start_harvest(
+                local_plant.fruit_per_tick, local_plant.eat_restore
+            )
             event_bus.publish(
                 Event(
                     "harvest_started",
@@ -296,9 +299,10 @@ class Agent(BaseModel):
         occupied.add(self.pos)
         self.age += 1
 
-        self.needs.apply_rest_drain(self.age, temperature)
+        self.needs.apply_rest_drain(self.age)
         self.needs.apply_hunger_drain(self.age, is_river_tile(self.pos))
         self.needs.apply_thirst_drain(self.age)
+        self.needs.apply_temperature_drift(temperature)
 
         event_bus.publish(Event("agent_moved", {"agent": self.model_dump(mode="json")}))
 

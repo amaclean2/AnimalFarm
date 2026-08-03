@@ -1,6 +1,9 @@
-import { INVENTORY_CAPACITY } from "./constants.js"
-import { abbreviateId, toCelsius } from "./utils.js"
-import { getEffectiveTemperatureAt } from "./state.js"
+import {
+  INVENTORY_CAPACITY,
+  IDEAL_CORE_TEMP_C,
+  CORE_TEMP_DEATH_MARGIN_C,
+} from "./constants.js"
+import { abbreviateId } from "./utils.js"
 
 const agentPanel = document.getElementById("agent-panel")
 const agentPanelTitle = document.getElementById("agent-panel-title")
@@ -13,6 +16,27 @@ const agentBar = (label, value, color, text) => {
     <div class="agent-bar-row">
       <div class="agent-bar-label">${label}<span class="agent-bar-val">${display}</span></div>
       <div class="agent-bar-track"><div class="agent-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+    </div>`
+}
+
+const agentCenterBar = (
+  label,
+  value,
+  ideal,
+  margin,
+  coldColor,
+  hotColor,
+  text,
+) => {
+  const fraction = Math.max(-1, Math.min(1, (value - ideal) / margin))
+  const left = fraction >= 0 ? 50 : 50 + fraction * 50
+  const width = Math.abs(fraction) * 50
+  const color = fraction >= 0 ? hotColor : coldColor
+  const display = text ?? `${value.toFixed(1)} °C`
+  return `
+    <div class="agent-bar-row">
+      <div class="agent-bar-label">${label}<span class="agent-bar-val">${display}</span></div>
+      <div class="agent-bar-track agent-bar-track--center"><div class="agent-bar-fill agent-bar-fill--center" style="left:${left}%;width:${width}%;background:${color}"></div></div>
     </div>`
 }
 
@@ -31,8 +55,6 @@ export const updateAgentPanel = (agent) => {
   const genome = agent.behavioral_genome ?? {}
   const fmt = (value) => (value != null ? value.toFixed(3) : "—")
 
-  const temperature = getEffectiveTemperatureAt(agent.x, agent.y)
-
   const rows = [
     ["age", agent.age],
     [
@@ -42,7 +64,6 @@ export const updateAgentPanel = (agent) => {
     ["breakaway", fmt(genome.breakaway_threshold)],
     ["hunger drain", `${agent.needs.hunger_drain_rate.toFixed(4)}/tick`],
     ["harvested", agent.fruits_harvested],
-    ["tile temp", `${toCelsius(temperature).toFixed(1)} °C`],
   ]
 
   const infoHtml = rows
@@ -67,6 +88,14 @@ export const updateAgentPanel = (agent) => {
     agentBar("hunger", agent.needs.hunger, "#c0392b") +
     agentBar("thirst", agent.needs.water, "#27a4c0") +
     agentBar("rest", agent.needs.rest, "#5b8dd9") +
+    agentCenterBar(
+      "temperature",
+      agent.needs.core_temperature,
+      IDEAL_CORE_TEMP_C,
+      CORE_TEMP_DEATH_MARGIN_C,
+      "#27a4c0",
+      "#c0392b",
+    ) +
     agentBar(
       "carrying",
       carriedTotal / INVENTORY_CAPACITY,

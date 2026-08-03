@@ -1,11 +1,11 @@
-export const WORLD_WIDTH = 100;
-export const WORLD_HEIGHT = 100;
-export const CELL_DESKTOP = 30;
-export const CELL_MOBILE = 15;
-export const SCROLL_SPEED = 600;
-export const API_BASE = "";
+export const WORLD_WIDTH = 100
+export const WORLD_HEIGHT = 100
+export const CELL_DESKTOP = 30
+export const CELL_MOBILE = 15
+export const SCROLL_SPEED = 600
+export const API_BASE = ""
 
-export const WS_URL = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
+export const WS_URL = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`
 
 export const COLOR_PALETTE = [
   "#e74c3c",
@@ -18,11 +18,14 @@ export const COLOR_PALETTE = [
   "#e91e63",
   "#00bcd4",
   "#8bc34a",
-];
+]
 
-export const AGENT_COLOR = "#d4b896";
+export const AGENT_COLOR = "#d4b896"
 
-export const INVENTORY_CAPACITY = 5;
+export const INVENTORY_CAPACITY = 5
+
+export const IDEAL_CORE_TEMP_C = 15.0
+export const CORE_TEMP_DEATH_MARGIN_C = 5.0
 
 export const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

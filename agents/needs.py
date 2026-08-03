@@ -5,12 +5,12 @@ from config import (
     HUNGER_RIVER_MULTIPLIER,
     HILL_ENERGY_MULTIPLIER,
     DRINK_RESTORE,
-    REST_COLD_MULTIPLIER,
     REST_RESTORE_MIN,
     REST_RESTORE_MAX,
-    TEMP_MIN_C,
-    TEMP_MAX_C,
     DRAIN_RATE_MULTIPLIER,
+    IDEAL_CORE_TEMP_C,
+    CORE_TEMP_DEATH_MARGIN_C,
+    CORE_TEMP_DRIFT_RATE,
 )
 from genome import GENE_DEFAULTS
 
@@ -29,6 +29,7 @@ class NeedState(BaseModel):
     water_drain_rate: float = GENE_DEFAULTS["water_drain_rate"]
     rest_drain_rate: float = GENE_DEFAULTS["rest_drain_rate"]
     hunger_drain_rate: float = GENE_DEFAULTS["hunger_drain_rate"]
+    core_temperature: float = IDEAL_CORE_TEMP_C
 
     @property
     def is_busy(self) -> bool:
@@ -52,16 +53,25 @@ class NeedState(BaseModel):
 
     def apply_thirst_drain(self, age: int) -> None:
         age_mult = self._infant_drain_mult(age)
-        self.water = min(
-            1.0, self.water + (self.water_drain_rate * age_mult * DRAIN_RATE_MULTIPLIER)
+        base_drain = self.water_drain_rate * age_mult * DRAIN_RATE_MULTIPLIER
+
+        off_from_core_temp = abs(self.core_temperature - IDEAL_CORE_TEMP_C)
+        off_ratio = off_from_core_temp / CORE_TEMP_DEATH_MARGIN_C
+
+        heat_mult = off_ratio**2
+
+        self.water = min(1.0, self.water + base_drain * heat_mult)
+
+    def apply_rest_drain(self, age: int) -> None:
+        age_mult = self._infant_drain_mult(age)
+        self.rest = min(
+            1.0, self.rest + (self.rest_drain_rate * age_mult * DRAIN_RATE_MULTIPLIER)
         )
 
-    def apply_rest_drain(self, age: int, temperature: float = 15.0) -> None:
-        age_mult = self._infant_drain_mult(age)
-        base = self.rest_drain_rate * age_mult * DRAIN_RATE_MULTIPLIER
-        temp_norm = (temperature - TEMP_MIN_C) / (TEMP_MAX_C - TEMP_MIN_C)
-        cold_mult = 1.0 + (REST_COLD_MULTIPLIER - 1.0) * (1.0 - temp_norm)
-        self.rest = min(1.0, self.rest + base * cold_mult)
+    def apply_temperature_drift(self, ambient_temperature: float) -> None:
+        self.core_temperature += (
+            ambient_temperature - self.core_temperature
+        ) * CORE_TEMP_DRIFT_RATE
 
     def drain_uphill(self, elev_gain: float) -> None:
         extra = elev_gain * HILL_ENERGY_MULTIPLIER * self.hunger_drain_rate

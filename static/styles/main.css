@@ -248,6 +248,30 @@ button:disabled {
   transition: width 0.1s linear;
 }
 
+.agent-bar-track--center {
+  position: relative;
+}
+
+.agent-bar-track--center::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: #444;
+}
+
+.agent-bar-fill--center {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 2px;
+  transition:
+    left 0.1s linear,
+    width 0.1s linear;
+}
+
 #hint {
   position: fixed;
   bottom: 14px;

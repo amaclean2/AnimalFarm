@@ -47,13 +47,15 @@ HUNGER_RIVER_MULTIPLIER = 2.0
 
 DRINK_RESTORE = 0.20
 
+IDEAL_CORE_TEMP_C = 15.0
+CORE_TEMP_DEATH_MARGIN_C = 5.0
+CORE_TEMP_DRIFT_RATE = 0.01
+
 # ── Carrying ──────────────────────────────────────────────────────────────────
 
 INVENTORY_CAPACITY = 5
 
-REST_COLD_MULTIPLIER = (
-    2.0  # drain multiplier at minimum temperature (scales to 1× at max temp)
-)
+HEAT_THIRST_MULTIPLIER = 2.0
 REST_RESTORE_MIN = 0.005  # tiredness reduced per tick on worst rest tile
 REST_RESTORE_MAX = 0.025  # tiredness reduced per tick on best rest tile
 
