@@ -6,9 +6,11 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from agents.inventory import Inventory
+from agents.learning import LearningState
 from agents.memory import Memory
 from agents.needs import NeedState
-from agents.scoring import ScoringContext, choose_best
+from agents.scoring import ScoringContext, score_all
+from agents.scoring.scoring_matrix import ACTIONS, state_key
 import deps
 import event_bus
 from events import Event
@@ -39,7 +41,6 @@ class Agent(BaseModel):
     vision_range: int = round(GENE_DEFAULTS["vision"])
 
     behavioral_genome: dict[str, float] = Field(default_factory=default_genome)
-    offspring_count: int = 0
 
     last_mated_tick: int = -(MATING_COOLDOWN + 1)
 
@@ -52,8 +53,12 @@ class Agent(BaseModel):
     needs: NeedState = Field(default_factory=NeedState)
     memory: Memory = Field(default_factory=Memory)
     inventory: Inventory = Field(default_factory=Inventory)
+    learning: LearningState = Field(default_factory=LearningState)
+
+    # Statistics
     fruits_harvested: int = 0
     cause_of_death: str | None = None
+    offspring_count: int = 0
 
     @property
     def pos(self) -> Pos:
@@ -91,7 +96,7 @@ class Agent(BaseModel):
     def death_cause(self) -> str | None:
         if self.needs.hunger >= 1.0:
             return "hunger"
-        if self.needs.water >= 1.0:
+        if self.needs.thirst >= 1.0:
             return "thirst"
         if self.needs.rest >= 1.0:
             return "rest"
@@ -189,8 +194,46 @@ class Agent(BaseModel):
             local_plant=local_plant,
             occupied_tiles=occupied_tiles,
         )
-        best = choose_best(self, context)
+        candidates = score_all(self, context)
+        current_state = state_key(self)
+        best = max(
+            candidates,
+            key=lambda candidate: deps.scoring_matrix.get_value(
+                current_state, candidate.task_name
+            ),
+        )
         return Task(priority=0, name=best.task_name, goal_pos=best.goal_pos)
+
+    def generate_snapshot(self) -> tuple[float, float, float, float]:
+        core_temp_danger = (
+            abs(self.needs.core_temperature - IDEAL_CORE_TEMP_C)
+            / CORE_TEMP_DEATH_MARGIN_C
+        )
+
+        return (self.needs.hunger, self.needs.thirst, self.needs.rest, core_temp_danger)
+
+    def observe_scoring_matrix(self, chosen_action: str) -> None:
+        current_state = state_key(self)
+        current_needs = self.generate_snapshot()
+
+        learning = self.learning
+
+        if learning.last_state is not None and learning.last_action is not None:
+            reward = -1 * sum(
+                current - previous
+                for current, previous in zip(current_needs, learning.last_needs)
+            )
+            deps.scoring_matrix.update(
+                learning.last_state,
+                learning.last_action,
+                reward,
+                current_state,
+                ACTIONS,
+            )
+
+        learning.last_state = current_state
+        learning.last_action = chosen_action
+        learning.last_needs = current_needs
 
     def plan_steps(
         self,
@@ -209,6 +252,8 @@ class Agent(BaseModel):
             occupied_tiles=occupied_tiles,
             world=world,
         )
+
+        self.observe_scoring_matrix(priority_task.name)
 
         if priority_task.name == "drink":
             self.needs.is_drinking = True

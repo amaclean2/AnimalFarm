@@ -56,12 +56,14 @@ def score_all(agent: "Agent", context: ScoringContext) -> list[ScoredCandidate]:
     ]
 
 
-def choose_best(agent: "Agent", context: ScoringContext) -> ScoredCandidate:
-    return max(score_all(agent, context), key=lambda candidate: candidate.score)
-
-
 def scale_urgency(raw: float) -> float:
     return raw * URGENCY_BAND_HIGH
 
 
-from agents.scoring import continuation, fallback, hunger, rest, thirst  # noqa: E402,F401
+from agents.scoring import (
+    continuation,
+    fallback,
+    hunger,
+    rest,
+    thirst,
+)  # noqa: E402,F401

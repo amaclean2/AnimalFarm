@@ -66,6 +66,7 @@ async def start_game(body: StartConfig = StartConfig()) -> None:
         SPONTANEOUS_MUTATION_RATE=body.spontaneous_mutation_rate,
     )
     deps.simulation.reset()
+    deps.scoring_matrix.capture_snapshot()
 
     all_cells = [
         Pos(x, y) for x in range(deps.world.width) for y in range(deps.world.height)

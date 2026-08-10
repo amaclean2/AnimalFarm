@@ -17,15 +17,19 @@ from agents.scoring.urgency import (
 
 
 @register_scorer
-def score_continue_drink(agent: "Agent", context: ScoringContext) -> ScoredCandidate | None:
-    if agent.needs.is_drinking or (context.at_river_tile and agent.needs.water > 0.0):
+def score_continue_drink(
+    agent: "Agent", context: ScoringContext
+) -> ScoredCandidate | None:
+    if agent.needs.is_drinking or (context.at_river_tile and agent.needs.thirst > 0.0):
         return ScoredCandidate("drink", TIER_BUSY, agent.pos)
 
     return None
 
 
 @register_scorer
-def score_thirst_explore_forced(agent: "Agent", context: ScoringContext) -> ScoredCandidate | None:
+def score_thirst_explore_forced(
+    agent: "Agent", context: ScoringContext
+) -> ScoredCandidate | None:
     if agent.memory.water:
         return None
 

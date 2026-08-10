@@ -17,7 +17,7 @@ from genome import GENE_DEFAULTS
 
 class NeedState(BaseModel):
     hunger: float = 0.0
-    water: float = 0.0
+    thirst: float = 0.0
     rest: float = 0.0
     is_sleeping: bool = False
     is_drinking: bool = False
@@ -40,7 +40,7 @@ class NeedState(BaseModel):
     def get_ticks_to_empty(self, need: str) -> int:
         drain_map = {
             "hunger": self.hunger_drain_rate,
-            "water": self.water_drain_rate,
+            "thirst": self.water_drain_rate,
             "rest": self.rest_drain_rate,
         }
         level = getattr(self, need)
@@ -58,9 +58,9 @@ class NeedState(BaseModel):
         off_from_core_temp = abs(self.core_temperature - IDEAL_CORE_TEMP_C)
         off_ratio = off_from_core_temp / CORE_TEMP_DEATH_MARGIN_C
 
-        heat_mult = off_ratio**3
+        heat_mult = 1.0 + off_ratio**3
 
-        self.water = min(1.0, self.water + base_drain * heat_mult)
+        self.thirst = min(1.0, self.thirst + base_drain * heat_mult)
 
     def apply_rest_drain(self, age: int) -> None:
         age_mult = self._infant_drain_mult(age)
@@ -115,5 +115,5 @@ class NeedState(BaseModel):
         self.is_eating = False
 
     def drink(self) -> None:
-        self.water = max(0.0, self.water - DRINK_RESTORE)
+        self.thirst = max(0.0, self.thirst - DRINK_RESTORE)
         self.is_drinking = False

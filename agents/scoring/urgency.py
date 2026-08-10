@@ -41,13 +41,13 @@ def compute_urgencies(agent: "Agent") -> dict[str, float]:
 
     hunger_urgency = agent.needs.hunger**3
     food_urgency = (1.0 - agent.inventory.fullness) ** 3
-    thirst_urgency = agent.needs.water**3
+    thirst_urgency = agent.needs.thirst**3
     rest_urgency = agent.needs.rest**3
     temperature_urgency = agent_temperature_diff**3
 
     if (
         closest_water_resource_dist is not None
-        and closest_water_resource_dist + 2 >= agent.needs.get_ticks_to_empty("water")
+        and closest_water_resource_dist + 2 >= agent.needs.get_ticks_to_empty("thirst")
     ):
         thirst_urgency = TIER_BUSY
 

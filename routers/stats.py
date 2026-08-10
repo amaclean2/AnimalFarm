@@ -31,12 +31,21 @@ class GeneStat(BaseModel):
     norm: float  # deviation from default, normalized to [-1, 1]
 
 
+class ScoringMatrixChange(BaseModel):
+    state: str
+    action: str
+    before: float | None
+    after: float
+    delta: float | None
+
+
 class WorldStats(BaseModel):
     tick_count: int
     agent_count: int
     plant_count: int
     gene_stats: list[GeneStat]
     agents: list[AgentStats]
+    scoring_matrix_changes: list[ScoringMatrixChange]
 
 
 def _gene_stats(living) -> list[GeneStat]:
@@ -93,6 +102,12 @@ async def get_stats():
             plant_count=len(deps.vegetation.all_plants),
             gene_stats=_gene_stats(deps.agents.all_living),
             agents=agents,
+            scoring_matrix_changes=[
+                ScoringMatrixChange(
+                    state=state, action=action, before=before, after=after, delta=delta
+                )
+                for state, action, before, after, delta in deps.scoring_matrix.compare_snapshots()
+            ],
         )
     except Exception:
         return JSONResponse(status_code=500, content={"error": traceback.format_exc()})

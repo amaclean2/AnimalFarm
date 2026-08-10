@@ -6,11 +6,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-import config as cfg
+
 import deps
 from agents import Agents
+from agents.scoring.scoring_matrix import ScoringMatrix
 from clock import clock
 from connections import _connections, broadcast
+from config import DATA_DIR, WORLD_WIDTH, WORLD_HEIGHT
 from genome_pool import GenomePool
 from plant import VegetationManager
 from routers import (
@@ -21,15 +23,18 @@ from routers import (
     stats,
     world as world_router,
 )
+from scoring_matrix_store import ScoringMatrixStore
 from simulation import Simulation
 from world import World
 
 STATIC = Path(__file__).parent / "static"
 
-_world = World(width=cfg.WORLD_WIDTH, height=cfg.WORLD_HEIGHT)
+_world = World(width=WORLD_WIDTH, height=WORLD_HEIGHT)
 _vegetation = VegetationManager(_world)
 _agents = Agents(_world.width, _world.height)
-_genome_pool = GenomePool(cfg.DATA_DIR / "genome_pool.db")
+_genome_pool = GenomePool(DATA_DIR / "genome_pool.db")
+_scoring_matrix_store = ScoringMatrixStore(DATA_DIR / "scoring_matrix.db")
+_scoring_matrix = ScoringMatrix(table=_scoring_matrix_store.load())
 _simulation = Simulation(_world, _vegetation, _agents)
 
 deps.world = _world
@@ -37,6 +42,8 @@ deps.vegetation = _vegetation
 deps.agents = _agents
 deps.simulation = _simulation
 deps.genome_pool = _genome_pool
+deps.scoring_matrix = _scoring_matrix
+deps.scoring_matrix_store = _scoring_matrix_store
 
 
 async def _on_tick(tick_count: int) -> None:
@@ -68,11 +75,14 @@ async def _on_tick(tick_count: int) -> None:
     t2 = time.perf_counter()
     sim_ms = (t1 - t0) * 1000
     broadcast_ms = (t2 - t1) * 1000
+
     print(
         f"[tick {tick_count:4d}] sim={sim_ms:.1f}ms  broadcast={broadcast_ms:.1f}ms  total={sim_ms+broadcast_ms:.1f}ms"
     )
+
     if not deps.agents.all_living:
         clock.stop()
+        deps.scoring_matrix_store.save(deps.scoring_matrix.table)
         await broadcast("game_over", {"tick": tick_count})
 
 
@@ -81,6 +91,7 @@ async def lifespan(_: FastAPI):
     clock.register(_on_tick)
     yield
     clock.stop()
+    deps.scoring_matrix_store.save(deps.scoring_matrix.table)
 
 
 app = FastAPI(title="Animal Farm API", version="0.1.0", lifespan=lifespan)

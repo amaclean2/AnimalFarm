@@ -1,8 +1,14 @@
 import { API_BASE } from "../constants.js"
-import { agents, getClockState, setSelectedAgentId } from "../state.js"
+import {
+  agents,
+  getClockState,
+  setSelectedAgentId,
+  setSelectedTile,
+} from "../state.js"
 import { abbreviateField } from "../utils.js"
 import { applyClockState } from "../Clock.js"
 import { updateAgentPanel } from "../AgentPanel.js"
+import { clearTilePanel } from "../TilePanel.js"
 import { renderGeneChart } from "./GeneChart.js"
 import {
   renderPopulationChart,
@@ -47,11 +53,11 @@ export const openStats = async () => {
     html += `</div>`
   }
 
-  if (Array.isArray(data.agents) && data.agents.length) {
+  if (data.agents.length) {
     html += renderPopulationChart(data.agents, data.tick_count)
   }
 
-  if (Array.isArray(data.gene_stats) && data.gene_stats.length) {
+  if (data.gene_stats.length) {
     html += renderGeneChart(data.gene_stats)
   }
 
@@ -113,7 +119,7 @@ export const openStats = async () => {
   modalBody.innerHTML = html
   modalOverlay.classList.add("open")
 
-  if (Array.isArray(data.agents) && data.agents.length) {
+  if (data.agents.length) {
     initPopulationChartInteraction(modalBody, data.agents, data.tick_count)
   }
 }
@@ -141,6 +147,8 @@ modalBody.addEventListener("click", (event) => {
   const agent = agents.get(row.dataset.agentId)
   if (!agent) return
 
+  setSelectedTile(null)
+  clearTilePanel()
   setSelectedAgentId(agent.id)
   updateAgentPanel(agent)
   closeStats()
